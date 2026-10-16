@@ -1,5 +1,5 @@
-import { sb, esc, fmt, seletorMes, mesAtual, nomeMes, TIPOS_DOC, abrirDocumento, toast, mensagemErro, plural } from "../comum.js";
-import { abrirDetalhes } from "../lancamento-janelas.js";
+import { sb, esc, fmt, seletorMes, mesAtual, nomeMes, TIPOS_DOC, abrirDocumento, toast, mensagemErro, plural } from "./comum.js";
+import { abrirDetalhes } from "./lancamento-janelas.js";
 
 let estado;
 

@@ -86,8 +86,8 @@ async function abrir() {
   conteudo.innerHTML = `<p class="carregando-pagina">Carregando…</p>`;
   try {
     const modulo = pagina.pronta
-      ? await import(`./paginas/${pagina.rota}.js`)
-      : await import("./paginas/em-breve.js");
+      ? await import(`./${pagina.rota}.js`)
+      : await import("./em-breve.js");
     await modulo.render(conteudo, { ...contexto, pagina });
   } catch (e) {
     console.error(e);

@@ -1,4 +1,4 @@
-import { esc } from "../comum.js";
+import { esc } from "./comum.js";
 
 const DESCRICOES = {
   painel: "Totais do mês (pagamentos, pendências, material reaproveitado), totais por sócio e gráficos.",

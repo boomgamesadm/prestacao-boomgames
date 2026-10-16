@@ -1,7 +1,7 @@
 import {
   sb, esc, fmt, ICONES, NOMES_PERFIL, abrirJanela, confirmar, toast,
   mensagemErro, chamarFuncaoUsuarios, validarSenha,
-} from "../comum.js";
+} from "./comum.js";
 
 const DESCRICAO_PERFIL = {
   administrador: "Acesso total, inclusive usuários e configurações.",

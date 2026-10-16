@@ -1,5 +1,5 @@
-import { sb, esc, fmt, mensagemErro, plural } from "../comum.js";
-import { abrirDetalhes, registrarPagamento, textoPrazo } from "../lancamento-janelas.js";
+import { sb, esc, fmt, mensagemErro, plural } from "./comum.js";
+import { abrirDetalhes, registrarPagamento, textoPrazo } from "./lancamento-janelas.js";
 
 let estado;
 

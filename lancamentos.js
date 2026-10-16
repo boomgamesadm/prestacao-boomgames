@@ -1,7 +1,7 @@
 import {
   sb, esc, fmt, ICONES, seletorMes, mesAtual, SITUACAO, CONFERENCIA, selo, mensagemErro, nomeMes, plural,
-} from "../comum.js";
-import { abrirFormulario, abrirDetalhes, textoPrazo } from "../lancamento-janelas.js";
+} from "./comum.js";
+import { abrirFormulario, abrirDetalhes, textoPrazo } from "./lancamento-janelas.js";
 
 const ABAS = [
   { id: "todos", nome: "Todos", filtro: (l) => l.situacao !== "cancelado" },

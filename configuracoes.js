@@ -1,4 +1,4 @@
-import { sb, esc, ICONES, toast, mensagemErro, cadastros, abrirJanela } from "../comum.js";
+import { sb, esc, ICONES, toast, mensagemErro, cadastros, abrirJanela } from "./comum.js";
 
 let raiz;
 const ehReceb = (c) => (c.aplica_a || []).includes("recebimento");
