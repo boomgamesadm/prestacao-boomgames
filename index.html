@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar · Boom Games Prestação de Contas</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="assets/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/estilo.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+  <script type="module" src="js/login.js"></script>
+</head>
+<body>
+  <main class="entrada-pagina">
+    <section class="entrada-marca">
+      <img src="assets/logo-boomgames-web.png" alt="Boom Games" width="640" height="313">
+      <h1 class="titulo">Prestação de contas</h1>
+      <p>Pagamentos, notas fiscais e boletos da Boom Games, organizados por mês.</p>
+    </section>
+
+    <section class="entrada-form">
+      <div class="entrada-caixa">
+
+        <!-- Entrar -->
+        <div id="etapa-entrar">
+          <h2 class="titulo">Entrar</h2>
+          <p class="sub">Use o e-mail e a senha cadastrados pelo administrador.</p>
+          <div id="aviso-entrar" role="alert"></div>
+          <form id="form-entrar" novalidate>
+            <div class="campo">
+              <label for="email">E-mail</label>
+              <input class="entrada" id="email" type="email" autocomplete="username" required>
+            </div>
+            <div class="campo">
+              <label for="senha">Senha</label>
+              <input class="entrada" id="senha" type="password" autocomplete="current-password" required>
+            </div>
+            <button class="botao botao-principal" type="submit">Entrar</button>
+          </form>
+          <button class="entrada-link" type="button" id="ir-esqueci">Esqueci minha senha</button>
+        </div>
+
+        <!-- Primeiro acesso: criar a própria senha -->
+        <div id="etapa-trocar" class="oculto">
+          <h2 class="titulo">Crie sua senha</h2>
+          <p class="sub">Você entrou com uma senha temporária. Crie a sua para continuar.</p>
+          <div id="aviso-trocar" role="alert"></div>
+          <form id="form-trocar" novalidate>
+            <div class="campo">
+              <label for="nova">Nova senha</label>
+              <input class="entrada" id="nova" type="password" autocomplete="new-password" required>
+              <p class="ajuda">Pelo menos 10 caracteres, com letras e números.</p>
+            </div>
+            <div class="campo">
+              <label for="nova2">Repita a nova senha</label>
+              <input class="entrada" id="nova2" type="password" autocomplete="new-password" required>
+            </div>
+            <button class="botao botao-principal" type="submit">Salvar senha e entrar</button>
+          </form>
+        </div>
+
+        <!-- Esqueci a senha -->
+        <div id="etapa-esqueci" class="oculto">
+          <h2 class="titulo">Recuperar senha</h2>
+          <p class="sub">Informe seu e-mail. Se ele estiver cadastrado, você recebe um link para criar uma nova senha.</p>
+          <div id="aviso-esqueci" role="alert"></div>
+          <form id="form-esqueci" novalidate>
+            <div class="campo">
+              <label for="email-rec">E-mail</label>
+              <input class="entrada" id="email-rec" type="email" autocomplete="username" required>
+            </div>
+            <button class="botao botao-principal" type="submit">Enviar link</button>
+          </form>
+          <button class="entrada-link" type="button" id="voltar-entrar">Voltar para a entrada</button>
+        </div>
+
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nova senha · Boom Games Prestação de Contas</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="assets/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/estilo.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+  <script type="module" src="js/nova-senha.js"></script>
+</head>
+<body>
+  <main class="entrada-pagina">
+    <section class="entrada-marca">
+      <img src="assets/logo-boomgames-web.png" alt="Boom Games" width="640" height="313">
+      <h1 class="titulo">Prestação de contas</h1>
+    </section>
+    <section class="entrada-form">
+      <div class="entrada-caixa">
+        <h2 class="titulo">Criar nova senha</h2>
+        <p class="sub">Escolha uma senha com pelo menos 10 caracteres, usando letras e números.</p>
+        <div id="aviso" role="alert"></div>
+        <form id="form" novalidate class="oculto">
+          <div class="campo">
+            <label for="nova">Nova senha</label>
+            <input class="entrada" id="nova" type="password" autocomplete="new-password" required>
+          </div>
+          <div class="campo">
+            <label for="nova2">Repita a nova senha</label>
+            <input class="entrada" id="nova2" type="password" autocomplete="new-password" required>
+          </div>
+          <button class="botao botao-principal" type="submit">Salvar nova senha</button>
+        </form>
+        <a class="entrada-link" href="index.html">Voltar para a entrada</a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
