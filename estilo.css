@@ -420,10 +420,12 @@ tr.cor-amarelo .prazo { color: var(--amarelo); font-weight: 650; }
 .janela-rodape.separado .botao:first-child { margin-right: auto; }
 
 /* Configurações */
-.config-grade { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); align-items: start; }
+.config-grade { display: grid; gap: 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; max-width: 1100px; }
+.config-coluna { display: grid; gap: 20px; align-content: start; }
+@media (max-width: 900px) { .config-grade { grid-template-columns: 1fr; } }
 .linha-add { display: flex; gap: 8px; padding: 14px 16px; border-top: 1px solid var(--linha); flex-wrap: wrap; }
 .linha-add .entrada { flex: 1 1 160px; min-height: 40px; }
-.linha-add select.entrada { flex: 0 1 150px; }
+.linha-add select.entrada { flex: 1 1 170px; }
 .linha-add .botao { min-height: 40px; }
 .tabela input.entrada { min-height: 36px; padding: 6px 10px; }
 .campo-dias { display: flex; align-items: center; gap: 10px; }
@@ -457,3 +459,34 @@ tr.cor-amarelo .prazo { color: var(--amarelo); font-weight: 650; }
 }
 .marca-doc { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px; border: 1px solid #CDCFD4; font-size: 11.5px; font-weight: 650; color: var(--texto-2); line-height: 18px; white-space: nowrap; }
 .marca-doc.pendente { border-color: var(--laranja); color: var(--laranja-forte); background: var(--laranja-suave); }
+
+/* =====================================================================
+   ETAPA 4 — Painel, Prestações, Relatórios
+   ===================================================================== */
+.painel-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.painel-grade .largo { grid-column: 1 / -1; }
+@media (max-width: 900px) { .painel-grade { grid-template-columns: 1fr; } }
+.txt-vermelho { color: var(--vermelho) !important; font-weight: 650; }
+.barras-h { display: grid; gap: 10px; }
+.barra-h { display: grid; grid-template-columns: minmax(90px, 150px) 1fr auto; gap: 10px; align-items: center; font-size: 13.5px; }
+.barra-h .rot { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.barra-h .trilho { height: 10px; background: var(--fundo); border-radius: 2px; overflow: hidden; }
+.barra-h .trilho i { display: block; height: 100%; background: var(--preto); }
+.barra-h:first-child .trilho i { background: var(--laranja); }
+.barra-h .val { font-weight: 650; }
+.legenda-mini { margin-left: auto; font-size: 13px; color: var(--texto-2); display: flex; align-items: center; gap: 6px; }
+.legenda-mini i { width: 10px; height: 10px; display: inline-block; margin-left: 8px; }
+.legenda-mini i.pago, .grafico-meses i.pago { background: var(--preto); }
+.legenda-mini i.apagar, .grafico-meses i.apagar { background: var(--laranja); }
+.grafico-meses { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; padding: 18px 20px 14px; height: 230px; }
+.mes-col { display: grid; grid-template-rows: auto 1fr auto; gap: 6px; text-align: center; min-width: 0; }
+.mes-col .val { font-size: 12px; color: var(--texto-2); white-space: nowrap; overflow: hidden; }
+.mes-col .barras { display: flex; align-items: flex-end; justify-content: center; gap: 4px; border-bottom: 1px solid var(--linha); }
+.mes-col .barras i { display: block; width: min(26px, 35%); min-height: 1px; }
+.mes-col .rot { font-size: 13px; color: var(--texto-2); font-weight: 600; }
+.mes-col.atual .rot { color: var(--preto); }
+.mes-col.atual .rot::after { content: ""; display: block; height: 3px; width: 22px; margin: 3px auto 0; background: var(--laranja); transform: skewX(-14deg); }
+.so-cel { display: none; }
+@media (max-width: 700px) { .so-cel { display: inline; font-weight: 400; color: var(--texto-2); } }
+.barra-h { grid-template-columns: minmax(90px, 170px) 1fr auto; }
+.lista-simples { margin: 0; padding-left: 20px; color: var(--texto-2); display: grid; gap: 6px; }

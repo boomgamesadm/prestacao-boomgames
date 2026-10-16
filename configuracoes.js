@@ -34,10 +34,9 @@ async function desenhar() {
 
   raiz.innerHTML = `
     <div class="config-grade">
+      <div class="config-coluna">
       ${lista("Sócios pagadores", "Aparecem na lista “Sócio que pagou”.", cad.pagadores, "pagadores")}
-      ${lista("Categorias", "Desativar esconde da lista, sem mudar lançamentos antigos.", ordenarCategorias(cad.categorias), "categorias",
-        (c) => `<div class="sec">${(c.aplica_a || []).includes("recebimento") ? "Recebimentos" : "Pagamentos e coleta de obra"}</div>`)}
-      ${lista("Formas de pagamento", "Boleto mostra parcelas; cartão de crédito anota o parcelamento.", cad.formas, "formas_pagamento")}
+      ${lista("Formas de pagamento", "Boleto e cartão de crédito mostram “Em quantas vezes”.", cad.formas, "formas_pagamento")}
       <section class="painel">
         <div class="painel-cabeca"><h2 class="titulo">Vencimentos e acesso</h2></div>
         <form class="painel-corpo" id="c-geral">
@@ -52,6 +51,11 @@ async function desenhar() {
           <button class="botao botao-principal" type="submit" style="margin-top:18px">Salvar</button>
         </form>
       </section>
+      </div>
+      <div class="config-coluna">
+      ${lista("Categorias", "Desativar esconde da lista, sem mudar lançamentos antigos.", ordenarCategorias(cad.categorias), "categorias",
+        (c) => `<div class="sec">${(c.aplica_a || []).includes("recebimento") ? "Recebimentos" : "Pagamentos e coleta de obra"}</div>`)}
+      </div>
     </div>`;
 
   const achar = (chave) => {

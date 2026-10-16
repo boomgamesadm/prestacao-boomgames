@@ -18,12 +18,12 @@ const podeEditar = eAdmin || perfil.perfil === "editor";
 // ---------- Páginas ----------
 // "pronta: false" = chega numa próxima etapa (mostra aviso honesto, sem botões falsos)
 const PAGINAS = [
-  { grupo: 1, rota: "painel",      nome: "Painel",               icone: "painel",     pronta: false, etapa: 4 },
-  { grupo: 1, rota: "prestacoes",  nome: "Prestações mensais",   icone: "calendario", pronta: false, etapa: 4 },
+  { grupo: 1, rota: "painel",      nome: "Painel",               icone: "painel",     pronta: true },
+  { grupo: 1, rota: "prestacoes",  nome: "Prestações mensais",   icone: "calendario", pronta: true },
   { grupo: 1, rota: "lancamentos", nome: "Lançamentos",          icone: "lista",      pronta: true },
   { grupo: 1, rota: "contas",      nome: "Contas a pagar",       icone: "boleto",     pronta: true },
   { grupo: 1, rota: "documentos",  nome: "Documentos",           icone: "documento",  pronta: true },
-  { grupo: 1, rota: "relatorios",  nome: "Relatórios PDF",       icone: "pdf",        pronta: false, etapa: 4 },
+  { grupo: 1, rota: "relatorios",  nome: "Relatórios PDF",       icone: "pdf",        pronta: true },
   { grupo: 2, rota: "historico",   nome: "Histórico de alterações", icone: "historico", pronta: false, etapa: 5, so: "admin" },
   { grupo: 2, rota: "usuarios",    nome: "Usuários e permissões", icone: "usuarios",  pronta: true,  so: "admin" },
   { grupo: 2, rota: "configuracoes", nome: "Configurações",      icone: "config",     pronta: true, so: "admin" },
@@ -74,8 +74,8 @@ const conteudo = document.getElementById("conteudo");
 const contexto = { perfil, eAdmin, podeEditar };
 
 async function abrir() {
-  const rota = location.hash.replace(/^#\/?/, "").split("?")[0] || "lancamentos";
-  const pagina = PAGINAS.find((p) => p.rota === rota) || PAGINAS.find((p) => p.rota === "lancamentos");
+  const rota = location.hash.replace(/^#\/?/, "").split("?")[0] || "painel";
+  const pagina = PAGINAS.find((p) => p.rota === rota) || PAGINAS.find((p) => p.rota === "painel");
   document.getElementById("titulo-pagina").textContent = pagina.nome;
   document.title = `${pagina.nome} · Boom Games`;
   for (const a of nav.querySelectorAll(".menu-item")) {
