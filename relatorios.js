@@ -13,7 +13,7 @@ export async function render(el, ctx) {
         <div class="painel-corpo">
           <p style="margin:0 0 12px">O PDF traz <strong>todos os lançamentos do mês</strong>, em ordem de data:</p>
           <ul class="lista-simples">
-            <li>Resumo: total pago, a pagar, material reaproveitado e conferidos</li>
+            <li>Resumo: faturamento da loja, custo do mês, resultado, a pagar e conferidos</li>
             <li>Quanto cada sócio pagou</li>
             <li>Cada lançamento com fornecedor, CNPJ ou CPF, nota fiscal, quem pagou, forma e se foi conferido</li>
             <li>Os cancelados aparecem à parte, com o motivo, fora dos totais</li>
@@ -49,7 +49,7 @@ async function carregar() {
   alvo.innerHTML = h.data.length ? `<table class="tabela"><tbody>${h.data.map((r) => `
     <tr><td><strong class="num">${esc(r.codigo)}</strong><div class="sec">${r.filtrado ? esc(r.filtros?.nome || "Filtrado") : `Versão ${r.versao}`}</div></td>
       <td class="sec">${esc(nomes.get(r.emitido_por) || "—")}<div class="num">${fmt.dataHora(r.emitido_em)}</div></td>
-      <td class="valor">${fmt.dinheiro(r.totais?.pagamentos_efetivados_centavos)}<div class="sec" style="font-weight:400">total pago</div></td></tr>`).join("")}
+      <td class="valor">${fmt.dinheiro(r.totais?.custo_mes_centavos ?? r.totais?.pagamentos_efetivados_centavos)}<div class="sec" style="font-weight:400">custo do mês</div></td></tr>`).join("")}
     </tbody></table>
     <p class="sec" style="padding:12px 16px;margin:0;border-top:1px solid var(--linha)">Cada emissão ganha um código e uma versão. Se um lançamento mudar depois, gere de novo: o PDF novo terá a versão seguinte.</p>`
     : `<div class="vazio-tabela">Nenhum PDF emitido para ${esc(nomeMes(mes).toLowerCase())} ainda.</div>`;

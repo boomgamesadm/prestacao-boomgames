@@ -43,6 +43,11 @@ export const fmt = {
     const [a, m, d] = String(isoData).slice(0, 10).split("-");
     return `${d}/${m}/${a}`;
   },
+  /** resultado com sinal: +R$ 1.234,56 / −R$ 500,00 */
+  sinal(centavos) {
+    const v = Number(centavos || 0);
+    return (v > 0 ? "+" : v < 0 ? "−" : "") + fmt.dinheiro(Math.abs(v));
+  },
   /** 123456 centavos → R$ 1.234,56 */
   dinheiro(centavos) {
     return (Number(centavos || 0) / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -69,6 +74,7 @@ export function mensagemErro(erro) {
     agendado_tem_vencimento: "Informe a data de vencimento.",
     lancamentos_valor_centavos_check: "O valor precisa ser maior que zero.",
     lancamentos_descricao_check: "Preencha a descrição.",
+    lanc_faturamento_por_mes: "Já existe faturamento lançado neste mês. Abra o existente para corrigir o valor.",
   };
   for (const [regra, texto] of Object.entries(regras)) if (m.includes(regra)) return texto;
   return m || "Algo deu errado. Tente novamente.";
@@ -297,12 +303,13 @@ export const SITUACAO = {
   vencido: ["Vencido", "erro"], atrasado: ["Atrasado", "erro"],
   material_reaproveitado: ["Reaproveitado", "neutro"],
   no_cartao: ["No cartão", "neutro"],
+  faturado: ["Faturamento", "ok"],
   cancelado: ["Cancelado", "off"],
 };
 export const CONFERENCIA = {
   pendente: ["Não conferido", "off"], conferido: ["Conferido", "ok"], divergente: ["Divergência", "erro"],
 };
-export const TIPO = { pagamento: "Pagamento", recebimento: "Recebimento", coleta_obra: "Coleta de obra", transferencia_interna: "Transferência interna" };
+export const TIPO = { pagamento: "Pagamento", recebimento: "Recebimento", coleta_obra: "Coleta de obra", faturamento: "Faturamento da loja", transferencia_interna: "Transferência interna" };
 export function selo([texto, cor]) { return `<span class="selo selo-${cor}">${esc(texto)}</span>`; }
 
 // ---------------- Documentos ----------------

@@ -8,11 +8,11 @@ const ABAS = [
   { id: "pagos", nome: "Pagos", filtro: (l) => l.tipo === "pagamento" && l.situacao === "pago" },
   { id: "apagar", nome: "A pagar", filtro: (l) => l.tipo === "pagamento" && l.saldo_pendente_centavos > 0 },
   { id: "coletas", nome: "Coleta de obra", filtro: (l) => l.tipo === "coleta_obra" && l.situacao !== "cancelado" },
-  { id: "receb", nome: "Recebimentos", filtro: (l) => l.tipo === "recebimento" && l.situacao !== "cancelado" },
+  { id: "fat", nome: "Faturamento", filtro: (l) => l.tipo === "faturamento" && l.situacao !== "cancelado" },
   { id: "nf", nome: "Com nota fiscal", filtro: (l) => l.situacao !== "cancelado" && temNotaFiscal(l) },
   { id: "nfpend", nome: "Nota a receber", filtro: (l) => l.situacao !== "cancelado" && l.nota_pendente },
   { id: "cpf", nome: "CPF", filtro: (l) => l.situacao !== "cancelado" && l.contraparte_tipo === "cpf" },
-  { id: "naoconf", nome: "Não conferidos", filtro: (l) => l.situacao !== "cancelado" && l.tipo !== "coleta_obra" && l.status_conferencia === "pendente" },
+  { id: "naoconf", nome: "Não conferidos", filtro: (l) => l.situacao !== "cancelado" && !["coleta_obra", "faturamento"].includes(l.tipo) && l.status_conferencia === "pendente" },
   { id: "diverg", nome: "Com divergência", filtro: (l) => l.situacao !== "cancelado" && l.status_conferencia === "divergente" },
   { id: "cancel", nome: "Cancelados", filtro: (l) => l.situacao === "cancelado" },
 ];
@@ -84,6 +84,8 @@ async function carregar() {
         <small>${r.coletas_obra_centavos ? `${fmt.dinheiro(r.pagamentos_efetivados_centavos)} pago + ${fmt.dinheiro(r.coletas_obra_centavos)} reaproveitado` : "Pagamentos efetivados"}</small></div>
       <div class="total ${r.pagar_pendente_centavos ? "destaque-amarelo" : ""}"><span>A pagar</span><strong>${fmt.dinheiro(r.pagar_pendente_centavos)}</strong>
         ${r.vencidas_centavos ? `<small>${fmt.dinheiro(r.vencidas_centavos)} vencido</small>` : "<small>Boletos e cartão deste mês</small>"}</div>
+      <div class="total"><span>Faturamento da loja</span><strong class="${r.faturamento_centavos ? "" : "apagado"}">${fmt.dinheiro(r.faturamento_centavos)}</strong>
+        <small>${r.faturamento_centavos ? `Resultado ${fmt.sinal(r.resultado_centavos)}` : "Ainda não lançado"}</small></div>
       ${r.recebimentos_efetivados_centavos ? `<div class="total"><span>Recebido no mês</span><strong>${fmt.dinheiro(r.recebimentos_efetivados_centavos)}</strong></div>` : ""}
       <div class="total"><span>Lançamentos</span><strong>${r.qtd_lancamentos || 0}</strong>
         <small>${plural(r.qtd_conferidos || 0, "conferido")}${r.qtd_divergencias ? `, ${r.qtd_divergencias} com divergência` : ""}</small></div>
@@ -152,8 +154,8 @@ function linha(l) {
       </td>
       <td class="sem-quebra td-socio">${esc(l.pagador_nome || "—")}</td>
       <td class="sec td-forma">${esc(l.forma_pagamento_nome || "—")}${l.vezes > 1 && !l.grupo_parcelas ? ` ${l.vezes}x` : ""}</td>
-      <td class="valor td-valor">${fmt.dinheiro(l.valor_centavos)}</td>
+      <td class="valor td-valor ${l.tipo === "faturamento" ? "txt-verde" : ""}">${l.tipo === "faturamento" ? "+ " : ""}${fmt.dinheiro(l.valor_centavos)}</td>
       <td class="td-sit">${selo(SITUACAO[l.situacao] || [l.situacao, "neutro"])}</td>
-      <td class="td-conf">${l.tipo === "coleta_obra" ? '<span class="sec">—</span>' : selo(CONFERENCIA[l.status_conferencia])}</td>
+      <td class="td-conf">${["coleta_obra", "faturamento"].includes(l.tipo) ? '<span class="sec">—</span>' : selo(CONFERENCIA[l.status_conferencia])}</td>
     </tr>`;
 }

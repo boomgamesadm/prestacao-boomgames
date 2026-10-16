@@ -61,10 +61,11 @@ export async function gerarPDF({ mes, filtro = "completo", perfil, baixar = true
   ]);
   if (lin.error) throw lin.error;
   const todos = lin.data;
-  const ativos = todos.filter((l) => l.situacao !== "cancelado");
+  const faturamentos = todos.filter((l) => l.tipo === "faturamento" && l.situacao !== "cancelado");
+  const ativos = todos.filter((l) => l.situacao !== "cancelado" && l.tipo !== "faturamento");
   const linhas = ativos.filter(F.filtro);
   const cancelados = filtrado ? [] : todos.filter((l) => l.situacao === "cancelado");
-  if (!linhas.length && !cancelados.length) {
+  if (!linhas.length && !cancelados.length && !faturamentos.length) {
     throw new Error(filtrado ? `Nenhum lançamento de ${nomeMes(mes)} atende ao filtro escolhido.` : `Não há lançamentos em ${nomeMes(mes)}.`);
   }
 
@@ -82,6 +83,8 @@ export async function gerarPDF({ mes, filtro = "completo", perfil, baixar = true
     qtd_divergencias: linhas.filter((l) => l.status_conferencia === "divergente").length,
   };
   totaisLocais.custo_mes_centavos = totaisLocais.pagamentos_efetivados_centavos + totaisLocais.coletas_obra_centavos;
+  totaisLocais.faturamento_centavos = faturamentos.reduce((s, l) => s + l.valor_centavos, 0);
+  totaisLocais.resultado_centavos = totaisLocais.faturamento_centavos - totaisLocais.custo_mes_centavos;
   totaisLocais.saldo_liquido_centavos = totaisLocais.recebimentos_efetivados_centavos - totaisLocais.pagamentos_efetivados_centavos;
 
   // Registro da emissão (código + versão). Na prestação completa o banco devolve os totais oficiais.
@@ -181,25 +184,27 @@ export async function gerarPDF({ mes, filtro = "completo", perfil, baixar = true
 
   // Resumo financeiro
   escrever("Resumo financeiro", M, y, { f: negrito, tam: 11, cor: COR.preto }); y += 18;
+  const temFat = (T.faturamento_centavos || 0) > 0;
   const caixas = [
-    ["Custo do mês", fmt.dinheiro(T.custo_mes_centavos), "Pago + material reaproveitado"],
-    ["Total pago", fmt.dinheiro(T.pagamentos_efetivados_centavos), "Pagamentos efetivados"],
-    ["Material reaproveitado", fmt.dinheiro(T.coletas_obra_centavos), "Coleta de obra"],
-    ["A pagar (em aberto)", fmt.dinheiro(T.pagar_pendente_centavos), T.vencidas_centavos ? `${fmt.dinheiro(T.vencidas_centavos)} vencido` : "Boletos e cartão deste mês"],
-    ["Recebido no mês", fmt.dinheiro(T.recebimentos_efetivados_centavos), "Recebimentos efetivados"],
-    ["Lançamentos", String(T.qtd_lancamentos ?? linhas.length), `${T.qtd_conferidos ?? 0} conferidos`],
+    ["Faturamento da loja", temFat ? fmt.dinheiro(T.faturamento_centavos) : "Não lançado", "Valor bruto do mês", temFat ? COR.verde : COR.claro],
+    ["Custo do mês", fmt.dinheiro(T.custo_mes_centavos), "Pago + material reaproveitado", COR.laranja],
+    ["Resultado", temFat ? fmt.sinal(T.resultado_centavos) : "—", "Faturamento menos custo", !temFat ? COR.claro : T.resultado_centavos >= 0 ? COR.verde : COR.vermelho],
+    ["Total pago", fmt.dinheiro(T.pagamentos_efetivados_centavos), "Pagamentos efetivados", COR.preto],
+    ["Material reaproveitado", fmt.dinheiro(T.coletas_obra_centavos), "Coleta de obra", COR.preto],
+    ["A pagar (em aberto)", fmt.dinheiro(T.pagar_pendente_centavos), T.vencidas_centavos ? `${fmt.dinheiro(T.vencidas_centavos)} vencido` : "Boletos e cartão do mês", T.vencidas_centavos ? COR.vermelho : COR.preto],
+    ["Lançamentos", String(T.qtd_lancamentos ?? linhas.length), `${T.qtd_conferidos ?? 0} conferidos`, COR.preto],
   ];
   const cw = UTIL / caixas.length;
   retangulo(M, y, UTIL, 50, rgb(1, 1, 1), COR.linha);
-  caixas.forEach(([rot, val, sub], i) => {
+  caixas.forEach(([rot, val, sub, corVal], i) => {
     const x = M + i * cw;
     if (i) pagina.drawLine({ start: { x, y: ALT - y }, end: { x, y: ALT - y - 50 }, thickness: 0.6, color: COR.linha });
     escrever(rot, x + 9, y + 8, { tam: 7.5, cor: COR.cinza });
-    escrever(val, x + 9, y + 20, { f: negrito, tam: 12.5, cor: i === 3 && T.vencidas_centavos ? COR.vermelho : i === 0 ? COR.laranja : COR.preto });
+    escrever(val, x + 9, y + 20, { f: negrito, tam: 11.5, cor: corVal });
     escrever(sub, x + 9, y + 37, { tam: 6.8, cor: COR.claro });
   });
   y += 58;
-  escrever(`Custo do mês = pagamentos efetivados + material reaproveitado (coleta de obra). Boletos entram no mês do vencimento e o cartão de crédito no mês da fatura. Saldo líquido (recebido menos pago): ${fmt.dinheiro(T.saldo_liquido_centavos)}.`, M, y, { tam: 7.2, cor: COR.cinza });
+  escrever(`Custo do mês = pagamentos efetivados + material reaproveitado (coleta de obra). Boletos entram no mês do vencimento e o cartão de crédito no mês da fatura. ${T.recebimentos_efetivados_centavos ? `Outros recebimentos no mês: ${fmt.dinheiro(T.recebimentos_efetivados_centavos)}.` : ""}`, M, y, { tam: 7.2, cor: COR.cinza });
   y += 11;
   escrever(`Conferência: ${T.qtd_conferidos ?? 0} de ${T.qtd_lancamentos ?? 0} lançamentos conferidos (conferido = impresso e arquivado na pasta)` +
     `${T.qtd_aguardando_conferencia ? `, ${T.qtd_aguardando_conferencia} não conferidos` : ""}${T.qtd_divergencias ? `, ${T.qtd_divergencias} com divergência` : ""}` +
@@ -256,8 +261,18 @@ export async function gerarPDF({ mes, filtro = "completo", perfil, baixar = true
     ];
   };
 
+  if (faturamentos.length) {
+    escrever("Faturamento da loja", M, y, { f: negrito, tam: 11, cor: COR.preto }); y += 16;
+    for (const f of faturamentos) {
+      retangulo(M, y, 520, 18, COR.zebra);
+      escrever(f.observacoes || "Valor bruto informado para o mês", M + 6, y + 5, { tam: 8, cor: COR.cinza });
+      escrever(fmt.dinheiro(f.valor_centavos), M + 400, y + 5, { f: negrito, tam: 8.5, cor: COR.verde, alinhar: "dir", largura: 114 });
+      y += 18;
+    }
+    y += 14;
+  }
   espaco(60);
-  escrever(`Lançamentos do mês, em ordem cronológica (${linhas.length})`, M, y, { f: negrito, tam: 11, cor: COR.preto }); y += 17;
+  escrever(`Custos do mês: lançamentos em ordem cronológica (${linhas.length})`, M, y, { f: negrito, tam: 11, cor: COR.preto }); y += 17;
   cabecalhoTabela();
   linhas.forEach((l, idx) => {
     const cel = celulas(l);
@@ -292,15 +307,19 @@ export async function gerarPDF({ mes, filtro = "completo", perfil, baixar = true
   espaco(52);
   y += 6;
   const fim = [
+    ...(temFat ? [["Faturamento da loja", T.faturamento_centavos]] : []),
     ["Custo do mês (pago + material reaproveitado)", T.custo_mes_centavos],
+    ...(temFat ? [["Resultado (faturamento menos custo)", T.resultado_centavos, true]] : []),
     ["Total pago no mês", T.pagamentos_efetivados_centavos],
     ["Total a pagar (em aberto)", T.pagar_pendente_centavos],
     ...(T.recebimentos_efetivados_centavos ? [["Total recebido no mês", T.recebimentos_efetivados_centavos]] : []),
     ...(T.coletas_obra_centavos ? [["Material reaproveitado", T.coletas_obra_centavos]] : []),
   ];
-  for (const [rot, v] of fim) {
+  espaco(fim.length * 13 + 10);
+  for (const [rot, v, comSinal] of fim) {
     escrever(rot, LARG - M - 330, y, { tam: 8.5, cor: COR.cinza, alinhar: "dir", largura: 240 });
-    escrever(fmt.dinheiro(v), LARG - M - 90, y, { f: negrito, tam: 8.5, alinhar: "dir", largura: 90 - PAD });
+    escrever(comSinal ? fmt.sinal(v) : fmt.dinheiro(v), LARG - M - 90, y, { f: negrito, tam: 8.5, alinhar: "dir", largura: 90 - PAD,
+      cor: comSinal ? (v >= 0 ? COR.verde : COR.vermelho) : COR.texto });
     y += 13;
   }
 

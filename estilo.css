@@ -490,3 +490,12 @@ tr.cor-amarelo .prazo { color: var(--amarelo); font-weight: 650; }
 @media (max-width: 700px) { .so-cel { display: inline; font-weight: 400; color: var(--texto-2); } }
 .barra-h { grid-template-columns: minmax(90px, 170px) 1fr auto; }
 .lista-simples { margin: 0; padding-left: 20px; color: var(--texto-2); display: grid; gap: 6px; }
+.txt-verde { color: var(--verde) !important; }
+.apagado { color: var(--texto-3) !important; }
+.total.destaque-verde strong { color: var(--verde); }
+.legenda-mini i.fat, .grafico-meses i.fat { background: #2DBE73; }
+.mes-col .val b { font-weight: 650; }
+.mudancas { list-style: none; margin: 6px 0 0; padding: 8px 10px; background: var(--fundo); border-radius: 6px; font-size: 13px; display: grid; gap: 3px; }
+.mudancas .campo-nome { color: var(--texto-2); }
+.mudancas .antes { color: var(--texto-3); text-decoration: line-through; }
+.tabela.historico td { vertical-align: top; }

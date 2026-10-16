@@ -1,6 +1,6 @@
 // Janelas usadas por Lançamentos e Contas a pagar
 import {
-  sb, esc, fmt, abrirJanela, confirmar, toast, mensagemErro, cadastros, hojeISO, somarDias,
+  sb, esc, fmt, abrirJanela, confirmar, toast, mensagemErro, cadastros, hojeISO, somarDias, nomeMes, mudarMes,
   lerDinheiro, dinheiroCampo, SITUACAO, CONFERENCIA, TIPO, selo, TIPOS_DOC, anexarDocumento, abrirDocumento,
 } from "./comum.js";
 
@@ -44,13 +44,27 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
   const situacaoInicial = v.status_pagamento === "parcial" ? "parcial"
     : ["pendente", "agendado"].includes(v.status_pagamento) ? "aberto" : "pago";
   const socios = cad.pagadores.filter((p) => p.ativo || String(p.id) === String(v.pagador_id));
+
+  // Faturamento: lista de meses (mais recente primeiro); meses já lançados ficam bloqueados
+  const { data: fatExist } = await sb.from("vw_lancamentos").select("id, mes_referencia")
+    .eq("tipo", "faturamento").neq("status_pagamento", "cancelado");
+  const mesesLancados = new Map((fatExist || []).map((f) => [String(f.mes_referencia).slice(0, 7), f.id]));
+  const mesAtualISO = hojeISO().slice(0, 7);
+  const mesAnterior = mudarMes(mesAtualISO + "-01", -1).slice(0, 7);
+  const mesDoLanc = lanc?.tipo === "faturamento" ? String(lanc.data_movimentacao).slice(0, 7) : null;
+  const listaMeses = Array.from({ length: 24 }, (_, i) => mudarMes(mesAtualISO + "-01", -i).slice(0, 7));
+  const mesPadrao = mesDoLanc || listaMeses.find((m) => m !== mesAtualISO && !mesesLancados.has(m)) || mesAnterior;
+  const opcoesMes = listaMeses.map((m) => {
+    const bloqueado = mesesLancados.has(m) && m !== mesDoLanc;
+    return `<option value="${m}" ${m === mesPadrao ? "selected" : ""} ${bloqueado ? "disabled" : ""}>${nomeMes(m + "-01")}${bloqueado ? " (já lançado)" : ""}</option>`;
+  }).join("");
   const formas = cad.formas.filter((f) => f.ativa || String(f.id) === String(v.forma_pagamento_id));
 
   const corpo = `
     <div class="campo">
       <span class="rotulo">Tipo</span>
       <div class="segmentos" role="radiogroup">
-        ${["pagamento", "coleta_obra", "recebimento"].map((t) => `
+        ${["pagamento", "coleta_obra", "faturamento", ...(v.tipo === "recebimento" ? ["recebimento"] : [])].map((t) => `
           <label><input type="radio" name="tipo" value="${t}" ${v.tipo === t ? "checked" : ""}><span>${TIPO[t]}</span></label>`).join("")}
       </div>
     </div>
@@ -59,25 +73,33 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
       O valor é só referência: aparece em “Material reaproveitado” e não soma no total pago do mês.
     </div>
 
+    <div class="caixa-nota" data-mostrar="faturamento" style="margin-top:14px">
+      <strong>Faturamento da loja:</strong> o valor bruto que a loja faturou no mês. O detalhe das vendas fica no sistema da loja.
+      Lance no mês seguinte, escolhendo o mês de referência. Entra no relatório mensal ao lado dos custos e no resultado do mês.
+    </div>
+
     <div class="grade" style="margin-top:18px">
-      <div class="campo"><label class="obrigatorio" for="f-data">Data</label>
+      <div class="campo" data-mostrar="faturamento"><label class="obrigatorio" for="f-mesfat">Mês de referência</label>
+        <select class="entrada" id="f-mesfat">${opcoesMes}</select>
+        <p class="ajuda">Meses que já têm faturamento aparecem como “já lançado” e não podem ser escolhidos. Para corrigir, abra o lançamento existente.</p></div>
+      <div class="campo" data-mostrar="nao-fat"><label class="obrigatorio" for="f-data">Data</label>
         <input class="entrada" id="f-data" type="date" value="${esc(dataCampo || "")}">
         <p class="ajuda" data-texto-data></p></div>
       <div class="campo"><label class="obrigatorio" for="f-valor" data-rotulo-valor>Valor (R$)</label>
         <input class="entrada num" id="f-valor" inputmode="decimal" placeholder="0,00" value="${dinheiroCampo(v.valor_centavos)}"></div>
 
-      <div class="campo inteira"><label class="obrigatorio" for="f-desc">Descrição</label>
+      <div class="campo inteira" data-mostrar="nao-fat"><label class="obrigatorio" for="f-desc">Descrição</label>
         <input class="entrada" id="f-desc" maxlength="300" placeholder="Ex.: 10 sacos de cimento" value="${esc(v.descricao || "")}"></div>
 
-      <div class="campo"><label class="obrigatorio" for="f-cat">Categoria</label>
+      <div class="campo" data-mostrar="nao-fat"><label class="obrigatorio" for="f-cat">Categoria</label>
         <select class="entrada" id="f-cat"></select></div>
-      <div class="campo"><label class="obrigatorio" for="f-socio">Sócio que pagou</label>
+      <div class="campo" data-mostrar="nao-fat"><label class="obrigatorio" for="f-socio">Sócio que pagou</label>
         <select class="entrada" id="f-socio">${opcoes(socios, v.pagador_id, "Escolha quem pagou")}</select>
         <p class="ajuda">Quem tirou o dinheiro para este lançamento.</p></div>
 
-      <div class="campo"><label for="f-contra">Fornecedor ou prestador</label>
+      <div class="campo" data-mostrar="nao-fat"><label for="f-contra">Fornecedor ou prestador</label>
         <input class="entrada" id="f-contra" maxlength="120" value="${esc(v.contraparte || "")}"></div>
-      <div class="campo"><label for="f-ctipo">O fornecedor é</label>
+      <div class="campo" data-mostrar="nao-fat"><label for="f-ctipo">O fornecedor é</label>
         <select class="entrada" id="f-ctipo">
           <option value="">Não informado</option>
           <option value="cnpj" ${v.contraparte_tipo === "cnpj" ? "selected" : ""}>Empresa (CNPJ)</option>
@@ -117,6 +139,7 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
       </div>
     </div>
 
+    <div data-mostrar="nao-fat">
     <h3 class="secao-titulo">Nota fiscal ou documento</h3>
     <div class="grade">
       <div class="campo"><label for="f-tdoc">Tipo de documento</label>
@@ -132,13 +155,14 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
         <p class="ajuda">Não é obrigatório na hora. O lançamento fica na aba “Nota a receber” até a nota ser informada.</p>
       </div>
     </div>
+    </div>
 
     <details class="mais-detalhes" ${v.observacoes || v.data_emissao ? "open" : ""}>
       <summary>Mais detalhes: datas da nota, pagamento e observações</summary>
       <div class="grade">
-        <div class="campo"><label for="f-emissao">Data de emissão da nota</label>
+        <div class="campo" data-mostrar="nao-fat"><label for="f-emissao">Data de emissão da nota</label>
           <input class="entrada" id="f-emissao" type="date" value="${esc(v.data_emissao || "")}"></div>
-        <div class="campo"><label for="f-chegou">Data em que a nota chegou</label>
+        <div class="campo" data-mostrar="nao-fat"><label for="f-chegou">Data em que a nota chegou</label>
           <input class="entrada" id="f-chegou" type="date" value="${esc(v.data_recebimento_doc || "")}">
           <p class="ajuda">Não muda a data da despesa.</p></div>
         <div class="campo" data-mostrar="pago-detalhe"><label for="f-dpag" data-rotulo-dpag>Data do pagamento</label>
@@ -187,18 +211,21 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
     const coleta = tipo === "coleta_obra", receb = tipo === "recebimento";
     const emGrupo = !novo && !!lanc.grupo_parcelas;
     const vezes = Number(el.querySelector("#f-vezes").value);
+    const fat = tipo === "faturamento";
     const cartaoNovo = novo && tipo === "pagamento" && eCartao;
     const cartaoAuto = !novo && !!lanc.pago_automatico;
 
     const mostrar = {
       coleta,
-      forma: !coleta,
-      vezes: !coleta && !emGrupo && !cartaoAuto && (eBoleto || eCartao),
+      faturamento: fat,
+      "nao-fat": !fat,
+      forma: !coleta && !fat,
+      vezes: !coleta && !fat && !emGrupo && !cartaoAuto && (eBoleto || eCartao),
       "vezes-grupo": emGrupo,
-      situacao: !coleta && !cartaoNovo && !cartaoAuto,
-      vencimento: !coleta && !cartaoNovo && !cartaoAuto && sit === "aberto",
+      situacao: !coleta && !fat && !cartaoNovo && !cartaoAuto,
+      vencimento: !coleta && !fat && !cartaoNovo && !cartaoAuto && sit === "aberto",
       "lista-parcelas": novo && !coleta && !eCartao && sit === "aberto" && eBoleto && vezes > 1,
-      "pago-detalhe": !coleta && !cartaoNovo && !cartaoAuto && sit === "pago",
+      "pago-detalhe": !coleta && !fat && !cartaoNovo && !cartaoAuto && sit === "pago",
       "cartao-info": cartaoNovo || cartaoAuto,
     };
     if (cartaoNovo || cartaoAuto) desenharCartao(el, cartaoNovo, vezes);
@@ -213,7 +240,10 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
     el.querySelector("[data-txt-pago]").textContent = receb ? "Já foi recebido" : "Já foi pago";
     el.querySelector("[data-txt-aberto]").textContent = receb ? "A receber" : "A pagar";
     el.querySelector("[data-rotulo-dpag]").textContent = receb ? "Data do recebimento" : "Data do pagamento";
-    el.querySelector("[data-rotulo-valor]").textContent = mostrar["lista-parcelas"] ? "Valor total (R$)" : "Valor (R$)";
+    el.querySelector("[data-rotulo-valor]").textContent = mostrar["lista-parcelas"] ? "Valor total (R$)" : fat ? "Valor faturado no mês (R$)" : "Valor (R$)";
+    const det = el.querySelector(".mais-detalhes summary");
+    if (det) det.textContent = fat ? "Observação (opcional)" : "Mais detalhes: datas da nota, pagamento e observações";
+    if (fat) el.querySelector(".mais-detalhes").open = true;
     el.querySelector("[data-texto-data]").textContent =
       mostrar["lista-parcelas"] ? "Data da compra. Cada parcela entra no mês do vencimento."
       : mostrar["cartao-info"] && novo ? "Data da compra. O custo entra no mês de cada fatura."
@@ -268,6 +298,18 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
       : "";
   }
 
+  async function salvarFaturamento(j, el, valor, outro) {
+    try {
+      const ok = await salvarFaturamentoBase({ el, lanc, valor, mes: el.querySelector("#f-mesfat").value, obs: el.querySelector("#f-obs").value.trim() });
+      if (!ok) return false;
+      toast(lanc ? "Faturamento atualizado." : "Faturamento do mês lançado.", "ok");
+      j.fechar();
+      await aoSalvar?.();
+      if (outro) abrirFormulario({ ctx, aoSalvar });
+    } catch (e) { erroNaJanela(el, mensagemErro(e)); }
+    return false;
+  }
+
   async function salvar(j, outro) {
     const el = j.elemento;
     const q = (id) => el.querySelector("#" + id);
@@ -275,6 +317,7 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
     const sit = tipo === "coleta_obra" ? "pago" : el.querySelector('input[name="sit"]:checked').value;
     const coleta = tipo === "coleta_obra", receb = tipo === "recebimento";
     const valor = lerDinheiro(q("f-valor").value);
+    if (tipo === "faturamento") return salvarFaturamento(j, el, valor, outro);
     const vpago = lerDinheiro(q("f-vpago").value);
     const forma = cad.formas.find((f) => String(f.id) === q("f-forma").value);
     const vezesVisivel = !q("f-vezes").closest("[data-mostrar]").classList.contains("oculto");
@@ -411,6 +454,35 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
   return janela;
 }
 
+// Faturamento da loja: um por mês, só valor e observação
+async function salvarFaturamentoBase({ el, lanc, valor, mes, obs }) {
+  if (!mes) throw new Error("Informe o mês de referência.");
+  if (!valor || valor <= 0) throw new Error("Informe o valor faturado, maior que zero.");
+  const data = `${mes}-01`;
+  const { data: existente } = await sb.from("vw_lancamentos").select("id").eq("tipo", "faturamento").eq("mes_referencia", data)
+    .neq("status_pagamento", "cancelado").limit(1);
+  if (existente?.length && existente[0].id !== lanc?.id) {
+    throw new Error(`Já existe faturamento lançado em ${nomeMes(data).toLowerCase()}. Abra o existente para corrigir o valor.`);
+  }
+  const dados = { tipo: "faturamento", data_movimentacao: data, valor_centavos: valor,
+    descricao: `Faturamento da loja, ${nomeMes(data).toLowerCase()}`, observacoes: obs || null,
+    status_pagamento: "liquidado", categoria_id: null, pagador_id: null, forma_pagamento_id: null, contraparte: null,
+    contraparte_tipo: null, tipo_documento: null, numero_documento: null, nota_pendente: false };
+  if (lanc) {
+    if (valor !== lanc.valor_centavos) {
+      const ok = await confirmar({ titulo: "Confirmar alteração",
+        texto: `Faturamento: ${fmt.dinheiro(lanc.valor_centavos)} → ${fmt.dinheiro(valor)}. A mudança fica registrada no histórico.`, botao: "Confirmar e salvar" });
+      if (!ok) return false;
+    }
+    const { error } = await sb.from("lancamentos").update(dados).eq("id", lanc.id);
+    if (error) throw error;
+  } else {
+    const { error } = await sb.from("lancamentos").insert(dados);
+    if (error) throw error;
+  }
+  return true;
+}
+
 async function procurarRepetido(dados, valor) {
   const { data: mesmoValor } = await sb.from("lancamentos").select("id, data_movimentacao, descricao, valor_centavos, status_pagamento")
     .eq("valor_centavos", valor).eq("data_movimentacao", dados.data_movimentacao).neq("status_pagamento", "cancelado").limit(1);
@@ -449,7 +521,7 @@ export async function abrirDetalhes({ ctx, id, aoMudar }) {
     <div class="cabeca-detalhe">
       <span class="valor-grande">${esc(fmt.dinheiro(l.valor_centavos))}</span>
       ${selo(SITUACAO[l.situacao] || [l.situacao, "neutro"])}
-      ${l.tipo !== "coleta_obra" ? selo(CONFERENCIA[l.status_conferencia]) : ""}
+      ${!["coleta_obra", "faturamento"].includes(l.tipo) ? selo(CONFERENCIA[l.status_conferencia]) : ""}
       ${l.parcela_rotulo ? `<span class="etiqueta">${esc(l.parcela_rotulo)}</span>` : ""}
     </div>
     <p style="margin:0 0 6px;font-size:17px;font-weight:600;color:var(--texto)">${esc(l.descricao)}</p>
@@ -468,7 +540,7 @@ export async function abrirDetalhes({ ctx, id, aoMudar }) {
       ${item("Sócio que pagou", esc(l.pagador_nome))}
       ${item("Forma de pagamento", l.forma_pagamento_nome ? esc(l.forma_pagamento_nome) + (l.vezes > 1 && !l.grupo_parcelas ? ` em ${l.vezes}x` : "") : null)}
       ${item("Vencimento", l.data_vencimento ? esc(fmt.data(l.data_vencimento)) : null)}
-      ${item(l.tipo === "recebimento" ? "Recebido em" : "Pago em", l.data_pagamento_efetiva && l.tipo !== "coleta_obra" ? esc(fmt.data(l.data_pagamento_efetiva)) : null)}
+      ${item(l.tipo === "recebimento" ? "Recebido em" : "Pago em", l.data_pagamento_efetiva && !["coleta_obra", "faturamento"].includes(l.tipo) ? esc(fmt.data(l.data_pagamento_efetiva)) : null)}
       ${item("Valor efetivamente pago", l.valor_pago_centavos != null && l.valor_pago_centavos !== l.valor_centavos && l.tipo !== "coleta_obra"
         ? esc(fmt.dinheiro(l.valor_pago_centavos)) + (pagoDif ? ` <span class="sec">(${pagoDif > 0 ? "juros/multa de " : "desconto de "}${esc(fmt.dinheiro(Math.abs(pagoDif)))})</span>` : "")
         : null)}
@@ -496,7 +568,7 @@ export async function abrirDetalhes({ ctx, id, aoMudar }) {
         <span class="sec">PDF, JPG ou PNG, até 15 MB.</span>
       </div>` : ""}
 
-    ${podeConferir && !cancelado && l.tipo !== "coleta_obra" ? `
+    ${podeConferir && !cancelado && !["coleta_obra", "faturamento"].includes(l.tipo) ? `
       <h3 class="secao-titulo">Conferência</h3>
       <p class="sec" style="margin:0 0 10px">Conferido = documento impresso e arquivado na pasta.</p>
       <div class="acoes-detalhe">
@@ -508,7 +580,7 @@ export async function abrirDetalhes({ ctx, id, aoMudar }) {
   const acoes = [];
   if (ctx.podeEditar && !cancelado) {
     if (podeCancelar) acoes.push({ texto: "Cancelar lançamento", classe: "botao-texto", aoClicar: (j) => { j.fechar(); cancelarLancamento(l, aoMudar); } });
-    if (l.nota_pendente || !l.numero_documento) {
+    if (l.tipo !== "faturamento" && (l.nota_pendente || !l.numero_documento)) {
       acoes.push({ texto: "Informar nota fiscal", classe: "botao-secundario", aoClicar: async (j) => {
         j.fechar();
         const { data: bruto } = await sb.from("lancamentos").select("*").eq("id", l.id).single();
@@ -520,7 +592,7 @@ export async function abrirDetalhes({ ctx, id, aoMudar }) {
       const { data: bruto } = await sb.from("lancamentos").select("*").eq("id", l.id).single();
       abrirFormulario({ ctx, lanc: bruto, aoSalvar: aoMudar });
     } });
-    if (aberto && l.tipo !== "coleta_obra" && !l.pago_automatico) {
+    if (aberto && !["coleta_obra", "faturamento"].includes(l.tipo) && !l.pago_automatico) {
       acoes.push({ texto: l.tipo === "recebimento" ? "Registrar recebimento" : "Registrar pagamento", classe: "botao-principal",
         aoClicar: (j) => { j.fechar(); registrarPagamento({ lanc: l, aoSalvar: aoMudar }); } });
     }
@@ -528,7 +600,7 @@ export async function abrirDetalhes({ ctx, id, aoMudar }) {
   if (!acoes.length) acoes.push({ texto: "Fechar", classe: "botao-secundario" });
 
   const j = abrirJanela({
-    titulo: `${TIPO[l.tipo]} de ${fmt.data(l.data_movimentacao)}`,
+    titulo: l.tipo === "faturamento" ? `Faturamento de ${nomeMes(l.data_movimentacao).toLowerCase()}` : `${TIPO[l.tipo]} de ${fmt.data(l.data_movimentacao)}`,
     corpo, acoes,
     aoAbrir: (jj) => {
       jj.elemento.querySelector(".janela").classList.add("larga");

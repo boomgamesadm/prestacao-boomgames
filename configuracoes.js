@@ -2,8 +2,8 @@ import { sb, esc, ICONES, toast, mensagemErro, cadastros, abrirJanela } from "./
 
 let raiz;
 const ehReceb = (c) => (c.aplica_a || []).includes("recebimento");
-const ordenarCategorias = (lista) => [...lista].sort((a, b) =>
-  ehReceb(a) - ehReceb(b) || a.ordem - b.ordem || a.nome.localeCompare(b.nome, "pt-BR"));
+const ordenarCategorias = (lista) => lista.filter((c) => !ehReceb(c)).sort((a, b) =>
+  a.ordem - b.ordem || a.nome.localeCompare(b.nome, "pt-BR"));
 
 export async function render(el) {
   raiz = el;
@@ -27,7 +27,6 @@ async function desenhar() {
       </tbody></table>
       <form class="linha-add" data-novo="${tabela}">
         <input class="entrada" name="nome" placeholder="Nome" maxlength="60" required>
-        ${tabela === "categorias" ? `<select class="entrada" name="aplica"><option value="pagamento">Para pagamentos</option><option value="recebimento">Para recebimentos</option></select>` : ""}
         <button class="botao botao-secundario" type="submit">${ICONES.mais}Adicionar</button>
       </form>
     </section>`;
@@ -56,8 +55,8 @@ async function desenhar() {
       </section>
       </div>
       <div class="config-coluna">
-      ${lista("Categorias", "Desativar esconde da lista, sem mudar lançamentos antigos.", ordenarCategorias(cad.categorias), "categorias",
-        (c) => `<div class="sec">${(c.aplica_a || []).includes("recebimento") ? "Recebimentos" : "Pagamentos e coleta de obra"}</div>`)}
+      ${lista("Categorias", "Usadas em pagamentos e coleta de obra. Desativar esconde da lista, sem mudar lançamentos antigos.", ordenarCategorias(cad.categorias), "categorias",
+        () => "")}
       </div>
     </div>`;
 
@@ -96,7 +95,7 @@ async function desenhar() {
     const nome = f.nome.value.trim();
     if (nome.length < 2) return toast("Informe um nome com pelo menos 2 letras.", "erro");
     const dados = { nome, ordem: 90 };
-    if (tabela === "categorias") dados.aplica_a = [f.aplica.value];
+    if (tabela === "categorias") dados.aplica_a = ["pagamento"];
     const { error } = await sb.from(tabela).insert(dados);
     if (error) return toast(/unico|unique|duplicate/i.test(error.message) ? "Já existe um item com esse nome." : mensagemErro(error), "erro");
     toast(`“${nome}” adicionado.`, "ok");
