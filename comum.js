@@ -296,6 +296,7 @@ export const SITUACAO = {
   parcialmente_pago: ["Pago em parte", "pendente"], recebimento_parcial: ["Recebido em parte", "pendente"],
   vencido: ["Vencido", "erro"], atrasado: ["Atrasado", "erro"],
   material_reaproveitado: ["Reaproveitado", "neutro"],
+  no_cartao: ["No cartão", "neutro"],
   cancelado: ["Cancelado", "off"],
 };
 export const CONFERENCIA = {

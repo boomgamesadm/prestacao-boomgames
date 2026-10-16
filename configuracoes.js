@@ -38,13 +38,16 @@ async function desenhar() {
       ${lista("Sócios pagadores", "Aparecem na lista “Sócio que pagou”.", cad.pagadores, "pagadores")}
       ${lista("Formas de pagamento", "Boleto e cartão de crédito mostram “Em quantas vezes”.", cad.formas, "formas_pagamento")}
       <section class="painel">
-        <div class="painel-cabeca"><h2 class="titulo">Vencimentos e acesso</h2></div>
+        <div class="painel-cabeca"><h2 class="titulo">Vencimentos, cartão e acesso</h2></div>
         <form class="painel-corpo" id="c-geral">
           <div class="campo"><label for="c-am">Linha amarela quando faltarem até</label>
             <div class="campo-dias"><input class="entrada num" id="c-am" type="number" min="1" max="60" value="${cfg.dias_amarelo}"> dias</div></div>
           <div class="campo"><label for="c-vm">Linha vermelha quando faltarem até</label>
             <div class="campo-dias"><input class="entrada num" id="c-vm" type="number" min="0" max="30" value="${cfg.dias_vermelho}"> dias</div>
             <p class="ajuda">Contas vencidas e ainda não pagas também ficam vermelhas.</p></div>
+          <div class="campo"><label for="c-fatura">Dia da fatura do cartão de crédito</label>
+            <div class="campo-dias"><input class="entrada num" id="c-fatura" type="number" min="1" max="28" value="${cfg.dia_fatura_cartao ?? 10}"> de cada mês</div>
+            <p class="ajuda">Compras no cartão entram como custo no mês da fatura e contam como pagas nesse dia.</p></div>
           <div class="campo"><label for="c-max">Máximo de contas ativas</label>
             <div class="campo-dias"><input class="entrada num" id="c-max" type="number" min="${Math.max(1, ativos?.length || 1)}" max="5" value="${cfg.max_usuarios}"> de 5</div>
             <p class="ajuda">Hoje: ${ativos?.length === 1 ? "1 conta ativa" : `${ativos?.length ?? 0} contas ativas`}.</p></div>
@@ -103,8 +106,10 @@ async function desenhar() {
     e.preventDefault();
     const am = Number(raiz.querySelector("#c-am").value), vm = Number(raiz.querySelector("#c-vm").value);
     const max = Number(raiz.querySelector("#c-max").value);
+    const fatura = Number(raiz.querySelector("#c-fatura").value);
+    if (!(fatura >= 1 && fatura <= 28)) return toast("O dia da fatura precisa estar entre 1 e 28.", "erro");
     if (!(vm < am)) return toast("Os dias da linha vermelha precisam ser menores que os da amarela.", "erro");
-    const { error } = await sb.from("configuracoes").update({ dias_amarelo: am, dias_vermelho: vm, max_usuarios: max }).eq("id", 1);
+    const { error } = await sb.from("configuracoes").update({ dias_amarelo: am, dias_vermelho: vm, max_usuarios: max, dia_fatura_cartao: fatura }).eq("id", 1);
     if (error) return toast(mensagemErro(error), "erro");
     toast("Configurações salvas.", "ok");
     desenhar();

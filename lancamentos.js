@@ -80,10 +80,10 @@ async function carregar() {
   const r = res.data || {};
   el.querySelector("#l-totais").innerHTML = `
     <div class="totais">
-      <div class="total"><span>Pago no mês</span><strong>${fmt.dinheiro(r.pagamentos_efetivados_centavos)}</strong></div>
+      <div class="total"><span>Custo do mês</span><strong>${fmt.dinheiro(r.custo_mes_centavos)}</strong>
+        <small>${r.coletas_obra_centavos ? `${fmt.dinheiro(r.pagamentos_efetivados_centavos)} pago + ${fmt.dinheiro(r.coletas_obra_centavos)} reaproveitado` : "Pagamentos efetivados"}</small></div>
       <div class="total ${r.pagar_pendente_centavos ? "destaque-amarelo" : ""}"><span>A pagar</span><strong>${fmt.dinheiro(r.pagar_pendente_centavos)}</strong>
-        ${r.vencidas_centavos ? `<small>${fmt.dinheiro(r.vencidas_centavos)} vencido</small>` : ""}</div>
-      <div class="total"><span>Material reaproveitado</span><strong>${fmt.dinheiro(r.coletas_obra_centavos)}</strong><small>Coleta de obra, fora do total pago</small></div>
+        ${r.vencidas_centavos ? `<small>${fmt.dinheiro(r.vencidas_centavos)} vencido</small>` : "<small>Boletos e cartão deste mês</small>"}</div>
       ${r.recebimentos_efetivados_centavos ? `<div class="total"><span>Recebido no mês</span><strong>${fmt.dinheiro(r.recebimentos_efetivados_centavos)}</strong></div>` : ""}
       <div class="total"><span>Lançamentos</span><strong>${r.qtd_lancamentos || 0}</strong>
         <small>${plural(r.qtd_conferidos || 0, "conferido")}${r.qtd_divergencias ? `, ${r.qtd_divergencias} com divergência` : ""}</small></div>
@@ -136,11 +136,13 @@ function desenharTabela() {
 
 function linha(l) {
   const classes = ["clicavel", l.cor_vencimento ? `cor-${l.cor_vencimento}` : "", l.situacao === "cancelado" ? "cancelado" : ""].join(" ");
-  const aberto = l.saldo_pendente_centavos > 0 && l.data_vencimento;
+  const aberto = l.saldo_pendente_centavos > 0 && l.data_vencimento && !l.pago_automatico;
+  const compraEm = l.data_competencia && l.data_competencia !== l.data_movimentacao;
   return `
     <tr class="${classes}" data-id="${l.id}" tabindex="0" aria-label="Abrir lançamento ${esc(l.descricao)}">
       <td class="data td-data">${fmt.data(l.data_movimentacao)}
-        ${aberto ? `<span class="prazo">Venc. ${fmt.data(l.data_vencimento).slice(0, 5)}, ${esc(textoPrazo(l.dias_para_vencer))}</span>` : ""}</td>
+        ${aberto ? `<span class="prazo">Venc. ${fmt.data(l.data_vencimento).slice(0, 5)}, ${esc(textoPrazo(l.dias_para_vencer))}</span>` : ""}
+        ${compraEm && !aberto ? `<span class="prazo">Compra em ${fmt.data(l.data_competencia).slice(0, 5)}</span>` : ""}</td>
       <td class="td-desc">
         <span class="desc-principal">${esc(l.descricao)}</span>${l.parcela_rotulo ? `<span class="etiqueta">${esc(l.parcela_rotulo)}</span>` : ""}${l.qtd_documentos ? `<span class="clipe" title="${l.qtd_documentos === 1 ? "1 arquivo anexado" : `${l.qtd_documentos} arquivos anexados`}">${ICONES.anexo}${l.qtd_documentos}</span>` : ""}
         <div class="sec">${esc(l.categoria_nome || "")}${l.contraparte ? `, ${esc(l.contraparte)}` : ""}

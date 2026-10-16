@@ -17,7 +17,7 @@ export const FILTROS = {
 const SIT = {
   pago: "Pago", recebido: "Recebido", a_pagar: "A pagar", a_receber: "A receber", agendado: "Agendado",
   parcialmente_pago: "Pago em parte", recebimento_parcial: "Receb. em parte", vencido: "Vencido",
-  atrasado: "Atrasado", material_reaproveitado: "Reaproveitado", cancelado: "Cancelado",
+  atrasado: "Atrasado", material_reaproveitado: "Reaproveitado", cancelado: "Cancelado", no_cartao: "No cartão",
 };
 
 let carregando = null;
@@ -81,6 +81,7 @@ export async function gerarPDF({ mes, filtro = "completo", perfil, baixar = true
     qtd_aguardando_conferencia: linhas.filter((l) => l.tipo !== "coleta_obra" && l.status_conferencia === "pendente").length,
     qtd_divergencias: linhas.filter((l) => l.status_conferencia === "divergente").length,
   };
+  totaisLocais.custo_mes_centavos = totaisLocais.pagamentos_efetivados_centavos + totaisLocais.coletas_obra_centavos;
   totaisLocais.saldo_liquido_centavos = totaisLocais.recebimentos_efetivados_centavos - totaisLocais.pagamentos_efetivados_centavos;
 
   // Registro da emissão (código + versão). Na prestação completa o banco devolve os totais oficiais.
@@ -181,11 +182,11 @@ export async function gerarPDF({ mes, filtro = "completo", perfil, baixar = true
   // Resumo financeiro
   escrever("Resumo financeiro", M, y, { f: negrito, tam: 11, cor: COR.preto }); y += 18;
   const caixas = [
-    ["Total pago no mês", fmt.dinheiro(T.pagamentos_efetivados_centavos), "Pagamentos efetivados"],
-    ["A pagar (em aberto)", fmt.dinheiro(T.pagar_pendente_centavos), T.vencidas_centavos ? `${fmt.dinheiro(T.vencidas_centavos)} vencido` : "Compromissos ainda não pagos"],
+    ["Custo do mês", fmt.dinheiro(T.custo_mes_centavos), "Pago + material reaproveitado"],
+    ["Total pago", fmt.dinheiro(T.pagamentos_efetivados_centavos), "Pagamentos efetivados"],
+    ["Material reaproveitado", fmt.dinheiro(T.coletas_obra_centavos), "Coleta de obra"],
+    ["A pagar (em aberto)", fmt.dinheiro(T.pagar_pendente_centavos), T.vencidas_centavos ? `${fmt.dinheiro(T.vencidas_centavos)} vencido` : "Boletos e cartão deste mês"],
     ["Recebido no mês", fmt.dinheiro(T.recebimentos_efetivados_centavos), "Recebimentos efetivados"],
-    ["Saldo líquido", fmt.dinheiro(T.saldo_liquido_centavos), "Recebido menos pago"],
-    ["Material reaproveitado", fmt.dinheiro(T.coletas_obra_centavos), "Coleta de obra, fora do total"],
     ["Lançamentos", String(T.qtd_lancamentos ?? linhas.length), `${T.qtd_conferidos ?? 0} conferidos`],
   ];
   const cw = UTIL / caixas.length;
@@ -194,11 +195,11 @@ export async function gerarPDF({ mes, filtro = "completo", perfil, baixar = true
     const x = M + i * cw;
     if (i) pagina.drawLine({ start: { x, y: ALT - y }, end: { x, y: ALT - y - 50 }, thickness: 0.6, color: COR.linha });
     escrever(rot, x + 9, y + 8, { tam: 7.5, cor: COR.cinza });
-    escrever(val, x + 9, y + 20, { f: negrito, tam: 12.5, cor: i === 1 && T.vencidas_centavos ? COR.vermelho : COR.preto });
+    escrever(val, x + 9, y + 20, { f: negrito, tam: 12.5, cor: i === 3 && T.vencidas_centavos ? COR.vermelho : i === 0 ? COR.laranja : COR.preto });
     escrever(sub, x + 9, y + 37, { tam: 6.8, cor: COR.claro });
   });
   y += 58;
-  escrever("Valores pela data do lançamento. Contas a pagar e material reaproveitado (coleta de obra) não entram no total pago.", M, y, { tam: 7.2, cor: COR.cinza });
+  escrever(`Custo do mês = pagamentos efetivados + material reaproveitado (coleta de obra). Boletos entram no mês do vencimento e o cartão de crédito no mês da fatura. Saldo líquido (recebido menos pago): ${fmt.dinheiro(T.saldo_liquido_centavos)}.`, M, y, { tam: 7.2, cor: COR.cinza });
   y += 11;
   escrever(`Conferência: ${T.qtd_conferidos ?? 0} de ${T.qtd_lancamentos ?? 0} lançamentos conferidos (conferido = impresso e arquivado na pasta)` +
     `${T.qtd_aguardando_conferencia ? `, ${T.qtd_aguardando_conferencia} não conferidos` : ""}${T.qtd_divergencias ? `, ${T.qtd_divergencias} com divergência` : ""}` +
@@ -209,16 +210,17 @@ export async function gerarPDF({ mes, filtro = "completo", perfil, baixar = true
   const socios = (porSocio.data || []).filter((s) => s.pago_centavos || s.pendente_centavos || s.coletas_obra_centavos || s.recebido_centavos);
   if (!filtrado && socios.length) {
     escrever("Por sócio (quem pagou)", M, y, { f: negrito, tam: 11, cor: COR.preto }); y += 17;
-    const cs = [["Sócio", 180, "esq"], ["Pago", 120, "dir"], ["A pagar", 120, "dir"], ["Material reaproveitado", 140, "dir"], ["Recebido", 120, "dir"]];
+    const cs = [["Sócio", 160, "esq"], ["Custo", 110, "dir"], ["Pago", 110, "dir"], ["Material reaproveitado", 130, "dir"], ["A pagar", 110, "dir"], ["Recebido", 100, "dir"]];
     let x = M;
-    retangulo(M, y, 680, 16, COR.zebra);
+    retangulo(M, y, 720, 16, COR.zebra);
     for (const [t, w, a] of cs) { escrever(t, x + 6, y + 4.5, { f: negrito, tam: 7.5, cor: COR.cinza, alinhar: a, largura: w - 12 }); x += w; }
     y += 16;
     for (const s of socios) {
       x = M;
-      const vals = [s.pagador, fmt.dinheiro(s.pago_centavos), fmt.dinheiro(s.pendente_centavos), fmt.dinheiro(s.coletas_obra_centavos), fmt.dinheiro(s.recebido_centavos || 0)];
+      const vals = [s.pagador, fmt.dinheiro(s.custo_centavos ?? (s.pago_centavos + s.coletas_obra_centavos)), fmt.dinheiro(s.pago_centavos),
+        fmt.dinheiro(s.coletas_obra_centavos), fmt.dinheiro(s.pendente_centavos), fmt.dinheiro(s.recebido_centavos || 0)];
       cs.forEach(([, w, a], i) => { escrever(vals[i], x + 6, y + 4.5, { f: i ? fonte : negrito, tam: 8, alinhar: a, largura: w - 12 }); x += w; });
-      y += 16; linhaH(y, M, M + 680);
+      y += 16; linhaH(y, M, M + 720);
     }
     y += 16;
   }
@@ -241,10 +243,11 @@ export async function gerarPDF({ mes, filtro = "completo", perfil, baixar = true
     const forma = l.tipo === "coleta_obra" ? "—"
       : (l.forma_pagamento_nome || "—") + (l.parcela_rotulo ? ` (${l.parcela_numero}/${l.parcela_total})` : l.vezes > 1 ? ` ${l.vezes}x` : "");
     let sit = SIT[l.situacao] || l.situacao;
-    if (l.saldo_pendente_centavos > 0 && l.data_vencimento) sit += ` venc. ${fmt.data(l.data_vencimento).slice(0, 5)}`;
+    if (l.saldo_pendente_centavos > 0 && l.data_vencimento) sit += l.pago_automatico ? ` (fatura ${fmt.data(l.data_vencimento).slice(0, 5)})` : ` venc. ${fmt.data(l.data_vencimento).slice(0, 5)}`;
     return [
       { v: String(l.id) }, { v: fmt.data(l.data_movimentacao) },
-      { v: l.descricao, sub: [l.categoria_nome, l.tipo !== "pagamento" ? TIPO[l.tipo] : ""].filter(Boolean).join(" · ") },
+      { v: l.descricao, sub: [l.categoria_nome, l.tipo !== "pagamento" ? TIPO[l.tipo] : "",
+          l.data_competencia && l.data_competencia !== l.data_movimentacao ? `compra em ${fmt.data(l.data_competencia)}` : ""].filter(Boolean).join(" · ") },
       { v: l.contraparte || "—" }, { v: l.contraparte_tipo ? l.contraparte_tipo.toUpperCase() : "—" },
       { v: (documento || "Sem documento") + (l.nota_pendente ? " (nota a receber)" : "") },
       { v: l.pagador_nome || "—" }, { v: forma }, { v: sit },
@@ -289,10 +292,11 @@ export async function gerarPDF({ mes, filtro = "completo", perfil, baixar = true
   espaco(52);
   y += 6;
   const fim = [
+    ["Custo do mês (pago + material reaproveitado)", T.custo_mes_centavos],
     ["Total pago no mês", T.pagamentos_efetivados_centavos],
     ["Total a pagar (em aberto)", T.pagar_pendente_centavos],
     ...(T.recebimentos_efetivados_centavos ? [["Total recebido no mês", T.recebimentos_efetivados_centavos]] : []),
-    ...(T.coletas_obra_centavos ? [["Material reaproveitado (fora do total pago)", T.coletas_obra_centavos]] : []),
+    ...(T.coletas_obra_centavos ? [["Material reaproveitado", T.coletas_obra_centavos]] : []),
   ];
   for (const [rot, v] of fim) {
     escrever(rot, LARG - M - 330, y, { tam: 8.5, cor: COR.cinza, alinhar: "dir", largura: 240 });

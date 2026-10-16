@@ -29,7 +29,7 @@ async function carregar() {
   // Últimos 6 meses até o mês escolhido
   const seis = Array.from({ length: 6 }, (_, i) => mudarMes(mes, i - 5));
   const serie = seis.map((m) => res.data.find((x) => x.mes === m) || { mes: m });
-  const maxBarra = Math.max(1, ...serie.map((s) => Math.max(s.pagamentos_efetivados_centavos || 0, s.pagar_pendente_centavos || 0)));
+  const maxBarra = Math.max(1, ...serie.map((s) => Math.max(s.custo_mes_centavos || 0, s.pagar_pendente_centavos || 0)));
 
   const agrupar = (lista, chave) => {
     const mapa = new Map();
@@ -48,12 +48,11 @@ async function carregar() {
   const socios = soc.data.filter((s) => s.pago_centavos || s.pendente_centavos || s.coletas_obra_centavos || s.recebido_centavos);
   corpo.innerHTML = `
     <div class="totais">
-      <div class="total"><span>Pago no mês</span><strong>${fmt.dinheiro(r.pagamentos_efetivados_centavos)}</strong></div>
+      <div class="total"><span>Custo do mês</span><strong>${fmt.dinheiro(r.custo_mes_centavos)}</strong>
+        <small>${r.coletas_obra_centavos ? `${fmt.dinheiro(r.pagamentos_efetivados_centavos)} pago + ${fmt.dinheiro(r.coletas_obra_centavos)} reaproveitado` : "Pagamentos efetivados"}</small></div>
       <div class="total ${r.pagar_pendente_centavos ? "destaque-amarelo" : ""}"><span>A pagar</span><strong>${fmt.dinheiro(r.pagar_pendente_centavos)}</strong>
-        ${r.vencidas_centavos ? `<small class="txt-vermelho">${fmt.dinheiro(r.vencidas_centavos)} vencido</small>` : "<small>Lançados neste mês</small>"}</div>
-      <div class="total"><span>Material reaproveitado</span><strong>${fmt.dinheiro(r.coletas_obra_centavos)}</strong><small>Fora do total pago</small></div>
-      <div class="total"><span>Recebido no mês</span><strong>${fmt.dinheiro(r.recebimentos_efetivados_centavos)}</strong>
-        <small>Saldo ${fmt.dinheiro(r.saldo_liquido_centavos ?? ((r.recebimentos_efetivados_centavos || 0) - (r.pagamentos_efetivados_centavos || 0)))}</small></div>
+        ${r.vencidas_centavos ? `<small class="txt-vermelho">${fmt.dinheiro(r.vencidas_centavos)} vencido</small>` : "<small>Boletos e cartão deste mês</small>"}</div>
+      ${r.recebimentos_efetivados_centavos ? `<div class="total"><span>Recebido no mês</span><strong>${fmt.dinheiro(r.recebimentos_efetivados_centavos)}</strong></div>` : ""}
       <div class="total"><span>Conferidos</span><strong>${r.qtd_conferidos || 0} de ${r.qtd_lancamentos || 0}</strong>
         <small>${r.qtd_divergencias ? `${r.qtd_divergencias} com divergência` : "Impressos e arquivados na pasta"}</small></div>
     </div>
@@ -62,10 +61,10 @@ async function carregar() {
       <section class="painel">
         <div class="painel-cabeca"><h2 class="titulo">Por sócio</h2><span class="resumo">Quem pagou em ${esc(nomeMes(mes).toLowerCase())}</span></div>
         ${socios.length ? `<div class="tabela-rolagem"><table class="tabela">
-          <thead><tr><th>Sócio</th><th class="direita">Pago</th><th class="direita">A pagar</th><th class="direita">Reaproveitado</th></tr></thead>
+          <thead><tr><th>Sócio</th><th class="direita">Custo</th><th class="direita">A pagar</th></tr></thead>
           <tbody>${socios.map((s) => `<tr><td><strong>${esc(s.pagador)}</strong></td>
-            <td class="valor">${fmt.dinheiro(s.pago_centavos)}</td><td class="valor">${fmt.dinheiro(s.pendente_centavos)}</td>
-            <td class="valor" style="color:var(--texto-2)">${fmt.dinheiro(s.coletas_obra_centavos)}</td></tr>`).join("")}</tbody></table></div>`
+            <td class="valor">${fmt.dinheiro(s.custo_centavos)}${s.coletas_obra_centavos ? `<div class="sec" style="font-weight:400">${fmt.dinheiro(s.coletas_obra_centavos)} reaproveitado</div>` : ""}</td>
+            <td class="valor">${fmt.dinheiro(s.pendente_centavos)}</td></tr>`).join("")}</tbody></table></div>`
           : `<div class="vazio-tabela">Nenhum lançamento neste mês.</div>`}
       </section>
 
@@ -81,12 +80,12 @@ async function carregar() {
 
       <section class="painel largo">
         <div class="painel-cabeca"><h2 class="titulo">Últimos 6 meses</h2>
-          <span class="legenda-mini"><i class="pago"></i>Pago <i class="apagar"></i>A pagar</span></div>
-        <div class="grafico-meses" role="img" aria-label="Pago e a pagar nos últimos 6 meses">
+          <span class="legenda-mini"><i class="pago"></i>Custo <i class="apagar"></i>A pagar</span></div>
+        <div class="grafico-meses" role="img" aria-label="Custo e a pagar nos últimos 6 meses">
           ${serie.map((s) => {
             const [a, m] = s.mes.split("-").map(Number);
-            const p = s.pagamentos_efetivados_centavos || 0, ap = s.pagar_pendente_centavos || 0;
-            return `<div class="mes-col ${s.mes === mes ? "atual" : ""}" title="${esc(nomeMes(s.mes))}: pago ${fmt.dinheiro(p)}, a pagar ${fmt.dinheiro(ap)}">
+            const p = s.custo_mes_centavos || 0, ap = s.pagar_pendente_centavos || 0;
+            return `<div class="mes-col ${s.mes === mes ? "atual" : ""}" title="${esc(nomeMes(s.mes))}: custo ${fmt.dinheiro(p)}, a pagar ${fmt.dinheiro(ap)}">
               <span class="val num">${p ? fmt.dinheiro(p).replace(/,\d\d$/, "") : ""}</span>
               <div class="barras"><i class="pago" style="height:${(p / maxBarra) * 100}%"></i><i class="apagar" style="height:${(ap / maxBarra) * 100}%"></i></div>
               <span class="rot">${MESES_CURTOS[m - 1]}${m === 1 ? `/${String(a).slice(2)}` : ""}</span></div>`;

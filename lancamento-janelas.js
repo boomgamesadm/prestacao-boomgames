@@ -37,6 +37,10 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
     status_pagamento: "liquidado",
     ...(base || {}),
   };
+  // Boleto em aberto: o campo "Data" mostra a data da compra; o mês é o do vencimento
+  const formaAtual = cad.formas.find((f) => String(f.id) === String(v.forma_pagamento_id));
+  const dataCampo = lanc && lanc.data_competencia && !lanc.pago_automatico && formaAtual && BOLETO.test(formaAtual.nome)
+    && ["pendente", "agendado", "parcial"].includes(lanc.status_pagamento) ? lanc.data_competencia : v.data_movimentacao;
   const situacaoInicial = v.status_pagamento === "parcial" ? "parcial"
     : ["pendente", "agendado"].includes(v.status_pagamento) ? "aberto" : "pago";
   const socios = cad.pagadores.filter((p) => p.ativo || String(p.id) === String(v.pagador_id));
@@ -57,7 +61,7 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
 
     <div class="grade" style="margin-top:18px">
       <div class="campo"><label class="obrigatorio" for="f-data">Data</label>
-        <input class="entrada" id="f-data" type="date" value="${esc(v.data_movimentacao || "")}">
+        <input class="entrada" id="f-data" type="date" value="${esc(dataCampo || "")}">
         <p class="ajuda" data-texto-data></p></div>
       <div class="campo"><label class="obrigatorio" for="f-valor" data-rotulo-valor>Valor (R$)</label>
         <input class="entrada num" id="f-valor" inputmode="decimal" placeholder="0,00" value="${dinheiroCampo(v.valor_centavos)}"></div>
@@ -108,6 +112,9 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
           <div class="parcelas-lista" data-lista-parcelas></div>
         </div>
       </div>
+      <div class="inteira" data-mostrar="cartao-info">
+        <div class="caixa-nota" data-cartao-info></div>
+      </div>
     </div>
 
     <h3 class="secao-titulo">Nota fiscal ou documento</h3>
@@ -157,7 +164,7 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
       j.elemento.querySelector(".janela").classList.add("larga");
       const el = j.elemento;
       el.addEventListener("change", () => atualizar(el));
-      el.addEventListener("input", (e) => { if (["f-valor", "f-venc"].includes(e.target.id)) atualizar(el);
+      el.addEventListener("input", (e) => { if (["f-valor", "f-venc", "f-data"].includes(e.target.id)) atualizar(el);
         if (e.target.id === "f-ndoc" && e.target.value.trim()) el.querySelector("#f-npend").checked = false; });
       for (const id of ["f-valor", "f-vpago"]) {
         el.querySelector("#" + id).addEventListener("blur", (e) => {
@@ -180,21 +187,25 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
     const coleta = tipo === "coleta_obra", receb = tipo === "recebimento";
     const emGrupo = !novo && !!lanc.grupo_parcelas;
     const vezes = Number(el.querySelector("#f-vezes").value);
+    const cartaoNovo = novo && tipo === "pagamento" && eCartao;
+    const cartaoAuto = !novo && !!lanc.pago_automatico;
 
     const mostrar = {
       coleta,
       forma: !coleta,
-      vezes: !coleta && !emGrupo && (eBoleto || eCartao),
+      vezes: !coleta && !emGrupo && !cartaoAuto && (eBoleto || eCartao),
       "vezes-grupo": emGrupo,
-      situacao: !coleta,
-      vencimento: !coleta && sit === "aberto",
-      "lista-parcelas": novo && !coleta && sit === "aberto" && eBoleto && vezes > 1,
-      "pago-detalhe": !coleta && sit === "pago",
+      situacao: !coleta && !cartaoNovo && !cartaoAuto,
+      vencimento: !coleta && !cartaoNovo && !cartaoAuto && sit === "aberto",
+      "lista-parcelas": novo && !coleta && !eCartao && sit === "aberto" && eBoleto && vezes > 1,
+      "pago-detalhe": !coleta && !cartaoNovo && !cartaoAuto && sit === "pago",
+      "cartao-info": cartaoNovo || cartaoAuto,
     };
+    if (cartaoNovo || cartaoAuto) desenharCartao(el, cartaoNovo, vezes);
     el.querySelector("[data-ajuda-vezes]").textContent =
       eBoleto && sit === "aberto" && novo ? "Cada parcela do boleto vira uma linha, com o seu vencimento."
       : eBoleto ? "Fica registrado no lançamento."
-      : "Fica um lançamento só, com o número de vezes registrado.";
+      : "Cada parcela entra na fatura do seu mês.";
     el.querySelector("[data-rotulo-venc]").textContent = mostrar["lista-parcelas"] ? "Vencimento da 1ª parcela" : "Vencimento";
     for (const [k, vis] of Object.entries(mostrar)) {
       el.querySelectorAll(`[data-mostrar="${k}"]`).forEach((n) => n.classList.toggle("oculto", !vis));
@@ -204,7 +215,11 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
     el.querySelector("[data-rotulo-dpag]").textContent = receb ? "Data do recebimento" : "Data do pagamento";
     el.querySelector("[data-rotulo-valor]").textContent = mostrar["lista-parcelas"] ? "Valor total (R$)" : "Valor (R$)";
     el.querySelector("[data-texto-data]").textContent =
-      mostrar["lista-parcelas"] ? "Data da compra. Cada parcela entra no mês do vencimento." : "Define em qual mês o lançamento aparece.";
+      mostrar["lista-parcelas"] ? "Data da compra. Cada parcela entra no mês do vencimento."
+      : mostrar["cartao-info"] && novo ? "Data da compra. O custo entra no mês de cada fatura."
+      : mostrar["cartao-info"] ? "Data da fatura desta parcela."
+      : eBoleto && !coleta && sit === "aberto" ? "Data da compra. O custo entra no mês do vencimento."
+      : "Define em qual mês o lançamento aparece.";
 
     // Categorias do tipo escolhido (coleta usa as de pagamento)
     const catSel = el.querySelector("#f-cat");
@@ -214,6 +229,28 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
     catSel.innerHTML = opcoes(cats, atual, "Escolha");
 
     if (mostrar["lista-parcelas"]) desenharParcelas(el, vezes);
+  }
+
+  function desenharCartao(el, eNovo, n) {
+    const alvo = el.querySelector("[data-cartao-info]");
+    if (!eNovo) {
+      alvo.innerHTML = `<strong>Parcela no cartão de crédito.</strong>
+        Compra em ${esc(fmt.data(lanc.data_competencia))}. Entra na fatura de ${esc(fmt.data(lanc.data_vencimento))} e conta como paga nesse dia.`;
+      return;
+    }
+    const dia = cad.config.dia_fatura_cartao || 10;
+    const compra = el.querySelector("#f-data").value;
+    const total = lerDinheiro(el.querySelector("#f-valor").value);
+    if (!compra) { alvo.innerHTML = "<strong>Cartão de crédito:</strong> informe a data da compra para ver as faturas."; return; }
+    const [a, m] = compra.split("-").map(Number);
+    const faturas = Array.from({ length: n }, (_, k) => {
+      const t = a * 12 + (m - 1) + k + 1;
+      return `${String(dia).padStart(2, "0")}/${String((t % 12) + 1).padStart(2, "0")}/${Math.floor(t / 12)}`;
+    });
+    const parc = total ? Math.floor(total / n) : 0, resto = total ? total - parc * n : 0;
+    alvo.innerHTML = `<strong>Cartão de crédito:</strong> o lançamento guarda a data da compra, mas o custo entra no mês de cada fatura (dia ${dia})
+      e conta como pago nesse dia.
+      <div class="parcelas-lista">${faturas.map((f, k) => `<span><strong>${n > 1 ? `${k + 1}ª` : "Fatura"}</strong> ${f}${total ? `<br>${esc(fmt.dinheiro(parc + (k === 0 ? resto : 0)))}` : ""}</span>`).join("")}</div>`;
   }
 
   function desenharParcelas(el, n) {
@@ -241,6 +278,8 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
     const vpago = lerDinheiro(q("f-vpago").value);
     const forma = cad.formas.find((f) => String(f.id) === q("f-forma").value);
     const vezesVisivel = !q("f-vezes").closest("[data-mostrar]").classList.contains("oculto");
+    const cartaoNovo = novo && !el.querySelector('[data-mostrar="cartao-info"]').classList.contains("oculto");
+    const cartaoAuto = !novo && !!lanc.pago_automatico;
     const vezes = vezesVisivel ? Number(q("f-vezes").value) : null;
     const nParc = !el.querySelector('[data-mostrar="lista-parcelas"]').classList.contains("oculto") ? vezes : 1;
 
@@ -251,7 +290,7 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
     if (!q("f-cat").value) return erroNaJanela(el, "Escolha a categoria."), false;
     if (!q("f-socio").value) return erroNaJanela(el, "Escolha o sócio que pagou."), false;
     if (!coleta && !q("f-forma").value) return erroNaJanela(el, "Escolha a forma de pagamento."), false;
-    if (sit === "aberto" && !q("f-venc").value) return erroNaJanela(el, "Informe a data de vencimento."), false;
+    if (sit === "aberto" && !cartaoNovo && !cartaoAuto && !q("f-venc").value) return erroNaJanela(el, "Informe a data de vencimento."), false;
 
     const observacoes = q("f-obs").value.trim() || null;
 
@@ -274,7 +313,11 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
     };
     if (vezesVisivel) dados.vezes = vezes;
     else if (!lanc?.grupo_parcelas) dados.vezes = null;
-    if (sit === "pago") {
+    if (cartaoAuto) {
+      dados.data_vencimento = dados.data_movimentacao;   // a fatura acompanha a data editada
+    } else if (cartaoNovo) {
+      // Cartão novo: situação e datas das faturas são calculadas pelo banco
+    } else if (sit === "pago") {
       Object.assign(dados, {
         status_pagamento: "liquidado",
         data_liquidacao: q("f-dpag").value || q("f-data").value,
@@ -283,6 +326,11 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
       });
     } else if (sit === "aberto") {
       Object.assign(dados, { status_pagamento: "pendente", data_vencimento: q("f-venc").value });
+      if (forma && BOLETO.test(forma.nome)) {
+        // Boleto: guarda a data da compra e lança no mês do vencimento
+        dados.data_competencia = dados.data_movimentacao;
+        dados.data_movimentacao = q("f-venc").value;
+      }
     } // "parcial": mantém os dados de pagamento como estão
 
     try {
@@ -316,7 +364,16 @@ export async function abrirFormulario({ ctx, lanc = null, base = null, aoSalvar,
           });
           if (!ok) return false;
         }
-        if (nParc > 1) {
+        if (cartaoNovo) {
+          const { error } = await sb.rpc("fn_registrar_compra_cartao", {
+            p_descricao: dados.descricao, p_categoria_id: dados.categoria_id, p_pagador_id: dados.pagador_id,
+            p_contraparte: dados.contraparte, p_contraparte_tipo: dados.contraparte_tipo, p_data_compra: dados.data_movimentacao,
+            p_tipo_documento: dados.tipo_documento, p_numero_documento: dados.numero_documento, p_nota_pendente: dados.nota_pendente,
+            p_valor_total_centavos: valor, p_vezes: vezes || 1, p_forma_pagamento_id: dados.forma_pagamento_id, p_observacoes: dados.observacoes,
+          });
+          if (error) throw error;
+          toast(vezes > 1 ? `Compra lançada em ${vezes} parcelas, nas faturas dos próximos meses.` : "Compra lançada na fatura do próximo mês.", "ok");
+        } else if (nParc > 1) {
           const datas = [q("f-venc").value, ...[...el.querySelectorAll("[data-lista-parcelas] input")].slice(1).map((i) => i.value)];
           if (datas.some((d) => !d)) return erroNaJanela(el, "Preencha o vencimento de todas as parcelas."), false;
           const { error } = await sb.rpc("fn_registrar_boleto_parcelado", {
@@ -397,19 +454,21 @@ export async function abrirDetalhes({ ctx, id, aoMudar }) {
     </div>
     <p style="margin:0 0 6px;font-size:17px;font-weight:600;color:var(--texto)">${esc(l.descricao)}</p>
     ${l.cor_vencimento ? `<p class="aviso ${l.cor_vencimento === "vermelho" ? "aviso-erro" : "aviso-info"}">${esc(textoPrazo(l.dias_para_vencer, true))}</p>` : ""}
+    ${l.pago_automatico && l.situacao === "no_cartao" ? `<p class="aviso aviso-info">Compra no cartão de crédito: entra na fatura de ${esc(fmt.data(l.data_vencimento))} e conta como paga nesse dia.</p>` : ""}
     ${l.nota_pendente && !cancelado ? `<p class="aviso aviso-info">A nota fiscal ainda não chegou.${ctx.podeEditar ? " Use “Informar nota fiscal” quando ela chegar." : ""}</p>` : ""}
     ${cancelado ? `<p class="aviso aviso-erro">Cancelado em ${esc(fmt.dataHora(l.cancelado_em))}. Motivo: ${esc(l.motivo_cancelamento)}</p>` : ""}
     ${l.status_conferencia === "divergente" ? `<p class="aviso aviso-erro">Divergência: ${esc(l.motivo_divergencia)}</p>` : ""}
     <dl class="detalhes">
       ${item("Tipo", esc(TIPO[l.tipo]))}
-      ${item("Data", esc(fmt.data(l.data_movimentacao)))}
+      ${item(l.pago_automatico ? "Fatura" : "Data", esc(fmt.data(l.data_movimentacao)))}
+      ${item("Data da compra", l.data_competencia && l.data_competencia !== l.data_movimentacao ? esc(fmt.data(l.data_competencia)) : null)}
       ${item("Categoria", esc(l.categoria_nome))}
       ${item("Fornecedor ou prestador", esc(l.contraparte))}
       ${item("O fornecedor é", l.contraparte_tipo ? (l.contraparte_tipo === "cpf" ? "Pessoa física (CPF)" : "Empresa (CNPJ)") : null)}
       ${item("Sócio que pagou", esc(l.pagador_nome))}
       ${item("Forma de pagamento", l.forma_pagamento_nome ? esc(l.forma_pagamento_nome) + (l.vezes > 1 && !l.grupo_parcelas ? ` em ${l.vezes}x` : "") : null)}
       ${item("Vencimento", l.data_vencimento ? esc(fmt.data(l.data_vencimento)) : null)}
-      ${item(l.tipo === "recebimento" ? "Recebido em" : "Pago em", l.data_liquidacao && l.tipo !== "coleta_obra" ? esc(fmt.data(l.data_liquidacao)) : null)}
+      ${item(l.tipo === "recebimento" ? "Recebido em" : "Pago em", l.data_pagamento_efetiva && l.tipo !== "coleta_obra" ? esc(fmt.data(l.data_pagamento_efetiva)) : null)}
       ${item("Valor efetivamente pago", l.valor_pago_centavos != null && l.valor_pago_centavos !== l.valor_centavos && l.tipo !== "coleta_obra"
         ? esc(fmt.dinheiro(l.valor_pago_centavos)) + (pagoDif ? ` <span class="sec">(${pagoDif > 0 ? "juros/multa de " : "desconto de "}${esc(fmt.dinheiro(Math.abs(pagoDif)))})</span>` : "")
         : null)}
@@ -421,7 +480,7 @@ export async function abrirDetalhes({ ctx, id, aoMudar }) {
       ${item("Lançado por", `${esc(l.criado_por_nome || "—")} <span class="sec">em ${esc(fmt.dataHora(l.criado_em))}</span>`)}
       ${item("Última alteração", l.atualizado_em && l.atualizado_em !== l.criado_em
         ? `${esc(l.atualizado_por_nome || "—")} <span class="sec">em ${esc(fmt.dataHora(l.atualizado_em))}</span>` : null)}
-      ${item("Nº do lançamento", `#${l.id}${l.ref_planilha ? ` <span class="sec">(planilha: ${esc(l.ref_planilha)})</span>` : ""}`)}
+      ${item("Nº do lançamento", `#${l.id}`)}
     </dl>
 
     <h3 class="secao-titulo">Documentos${l.grupo_parcelas ? " (valem para todas as parcelas)" : ""}</h3>
@@ -461,7 +520,7 @@ export async function abrirDetalhes({ ctx, id, aoMudar }) {
       const { data: bruto } = await sb.from("lancamentos").select("*").eq("id", l.id).single();
       abrirFormulario({ ctx, lanc: bruto, aoSalvar: aoMudar });
     } });
-    if (aberto && l.tipo !== "coleta_obra") {
+    if (aberto && l.tipo !== "coleta_obra" && !l.pago_automatico) {
       acoes.push({ texto: l.tipo === "recebimento" ? "Registrar recebimento" : "Registrar pagamento", classe: "botao-principal",
         aoClicar: (j) => { j.fechar(); registrarPagamento({ lanc: l, aoSalvar: aoMudar }); } });
     }

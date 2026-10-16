@@ -21,7 +21,7 @@ async function carregar() {
       <div class="painel-cabeca"><h2 class="titulo">Prestações por mês</h2>
         <span class="resumo">Concluir trava o mês contra alterações; reabrir libera de novo. Tudo fica no histórico.</span></div>
       ${data.length ? `<div class="tabela-rolagem"><table class="tabela cartoes">
-        <thead><tr><th>Mês</th><th class="direita">Pago</th><th class="direita">A pagar</th>
+        <thead><tr><th>Mês</th><th class="direita">Custo do mês</th><th class="direita">A pagar</th>
           <th>Conferidos</th><th>Situação</th><th><span class="sr">Ações</span></th></tr></thead>
         <tbody>${data.map((r) => {
           const st = STATUS[r.status_prestacao] || STATUS.em_andamento;
@@ -30,7 +30,7 @@ async function carregar() {
             r.concluida_em ? `concluída em ${fmt.data(r.concluida_em)}` : ""].filter(Boolean).join(", ");
           return `<tr data-mes="${r.mes}">
             <td class="td-desc"><span class="desc-principal sem-quebra">${esc(nomeMes(r.mes))}</span><div class="sec">${esc(extra)}</div></td>
-            <td class="valor td-valor"><span class="so-cel">Pago </span>${fmt.dinheiro(r.pagamentos_efetivados_centavos)}</td>
+            <td class="valor td-valor"><span class="so-cel">Custo </span>${fmt.dinheiro(r.custo_mes_centavos)}</td>
             <td class="valor td-data" style="text-align:right"><span class="so-cel">A pagar </span>${fmt.dinheiro(r.pagar_pendente_centavos)}</td>
             <td class="td-socio sem-quebra"><span class="so-cel">Conferidos </span>${r.qtd_conferidos || 0} de ${r.qtd_lancamentos || 0}${r.qtd_divergencias ? ` <span class="selo selo-erro">${r.qtd_divergencias} diverg.</span>` : ""}</td>
             <td class="td-sit"><span class="selo selo-${st[1]}">${st[0]}</span></td>
