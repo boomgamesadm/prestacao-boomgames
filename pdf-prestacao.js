@@ -21,7 +21,7 @@ const SIT = {
 };
 
 let carregando = null;
-function carregarPdfLib() {
+export function carregarPdfLib() {
   if (window.PDFLib) return Promise.resolve(window.PDFLib);
   carregando ??= new Promise((ok, falha) => {
     const s = document.createElement("script");
@@ -35,7 +35,7 @@ function carregarPdfLib() {
 
 // A fonte padrão do PDF (Helvetica) só tem caracteres do alfabeto latino.
 const EXTRAS = "€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ";
-function limpo(texto) {
+export function limpo(texto) {
   return Array.from(String(texto ?? "")).map((c) => {
     const n = c.codePointAt(0);
     if (c === "\n" || c === "\t") return " ";

@@ -53,6 +53,18 @@ async function desenhar() {
           <button class="botao botao-principal" type="submit" style="margin-top:18px">Salvar</button>
         </form>
       </section>
+      <section class="painel">
+        <div class="painel-cabeca"><h2 class="titulo">Dados da empresa</h2><span class="resumo">Aparecem no topo do PDF de faturamento.</span></div>
+        <form class="painel-corpo" id="c-empresa">
+          <div class="campo"><label for="c-razao">Razão social</label>
+            <input class="entrada" id="c-razao" maxlength="120" value="${esc(cfg.empresa_razao_social || "")}"></div>
+          <div class="campo"><label for="c-cnpj">CNPJ</label>
+            <input class="entrada num" id="c-cnpj" maxlength="18" placeholder="00.000.000/0000-00" value="${esc(cfg.empresa_cnpj || "")}"></div>
+          <div class="campo"><label for="c-end">Endereço</label>
+            <input class="entrada" id="c-end" maxlength="160" value="${esc(cfg.empresa_endereco || "")}"></div>
+          <button class="botao botao-principal" type="submit" style="margin-top:18px">Salvar dados da empresa</button>
+        </form>
+      </section>
       </div>
       <div class="config-coluna">
       ${lista("Categorias", "Usadas em pagamentos e coleta de obra. Desativar esconde da lista, sem mudar lançamentos antigos.", ordenarCategorias(cad.categorias), "categorias",
@@ -101,6 +113,19 @@ async function desenhar() {
     toast(`“${nome}” adicionado.`, "ok");
     desenhar();
   });
+  raiz.querySelector("#c-empresa").onsubmit = async (e) => {
+    e.preventDefault();
+    const cnpj = raiz.querySelector("#c-cnpj").value.trim();
+    if (cnpj && cnpj.replace(/\D/g, "").length !== 14) return toast("O CNPJ precisa ter 14 números.", "erro");
+    const { error } = await sb.from("configuracoes").update({
+      empresa_razao_social: raiz.querySelector("#c-razao").value.trim() || null,
+      empresa_cnpj: cnpj || null,
+      empresa_endereco: raiz.querySelector("#c-end").value.trim() || null,
+    }).eq("id", 1);
+    if (error) return toast(mensagemErro(error), "erro");
+    toast("Dados da empresa salvos.", "ok");
+    desenhar();
+  };
   raiz.querySelector("#c-geral").onsubmit = async (e) => {
     e.preventDefault();
     const am = Number(raiz.querySelector("#c-am").value), vm = Number(raiz.querySelector("#c-vm").value);

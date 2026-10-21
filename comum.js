@@ -74,6 +74,7 @@ export function mensagemErro(erro) {
     agendado_tem_vencimento: "Informe a data de vencimento.",
     lancamentos_valor_centavos_check: "O valor precisa ser maior que zero.",
     lancamentos_descricao_check: "Preencha a descrição.",
+    faturamento_diario_data_key: "Este dia já foi lançado. Abra a linha do dia para editar.",
     lanc_faturamento_por_mes: "Já existe faturamento lançado neste mês. Abra o existente para corrigir o valor.",
   };
   for (const [regra, texto] of Object.entries(regras)) if (m.includes(regra)) return texto;
@@ -212,6 +213,7 @@ export const ICONES = {
   recolher: svg('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 10l-2 2 2 2"/>'),
   fechar: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
   mais: svg('<path d="M12 5v14M5 12h14"/>'),
+  caixa: svg('<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>'),
   esquerda: svg('<path d="m15 18-6-6 6-6"/>'),
   direita: svg('<path d="m9 18 6-6-6-6"/>'),
   anexo: svg('<path d="m21 12-8.6 8.6a5.7 5.7 0 0 1-8-8L13 4a3.8 3.8 0 0 1 5.4 5.4l-8.6 8.6a1.9 1.9 0 0 1-2.7-2.7l8-8"/>'),

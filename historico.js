@@ -4,14 +4,14 @@ import { abrirDetalhes } from "./lancamento-janelas.js";
 const TABELAS = {
   lancamentos: "Lançamentos", prestacoes: "Prestações mensais", relatorios_emitidos: "Relatórios PDF",
   documentos: "Documentos", perfis: "Usuários", categorias: "Categorias", pagadores: "Sócios",
-  formas_pagamento: "Formas de pagamento", configuracoes: "Configurações",
+  formas_pagamento: "Formas de pagamento", configuracoes: "Configurações", faturamento_diario: "Faturamento diário",
 };
 const SINGULAR = {
   lancamentos: "lançamento", prestacoes: "prestação do mês", relatorios_emitidos: "relatório PDF", documentos: "documento",
-  perfis: "usuário", categorias: "categoria", pagadores: "sócio", formas_pagamento: "forma de pagamento", configuracoes: "configurações",
+  perfis: "usuário", categorias: "categoria", pagadores: "sócio", formas_pagamento: "forma de pagamento", configuracoes: "configurações", faturamento_diario: "faturamento do dia",
 };
 const OPERACOES = {
-  INSERT: "Criou", UPDATE: "Alterou", DELETE: "Apagou", CANCELAMENTO: "Cancelou", RESTAURACAO: "Restaurou",
+  INSERT: "Criou", UPDATE: "Alterou", DELETE: "Excluiu", CANCELAMENTO: "Cancelou", RESTAURACAO: "Restaurou",
   PAGAMENTO: "Registrou pagamento", ANEXO_DOCUMENTO: "Anexou documento", REMOCAO_DOCUMENTO: "Removeu documento",
   GERACAO_RELATORIO: "Gerou PDF", ENCERRAMENTO: "Concluiu o mês", REABERTURA: "Reabriu o mês",
   EM_CONFERENCIA: "Enviou para conferência", STATUS_PRESTACAO: "Mudou a situação do mês",
@@ -27,6 +27,9 @@ const CAMPOS = {
   ativo: "Ativo", ativa: "Ativa", perfil: "Perfil", nome: "Nome", email: "E-mail", status: "Situação",
   dias_amarelo: "Dias da linha amarela", dias_vermelho: "Dias da linha vermelha", dia_fatura_cartao: "Dia da fatura do cartão",
   max_usuarios: "Máximo de contas", pode_conferir: "Pode conferir", pode_cancelar: "Pode cancelar", trocar_senha: "Trocar senha",
+  dinheiro_centavos: "Dinheiro", pix_centavos: "PIX", debito_centavos: "Cartão de débito", credito_centavos: "Cartão de crédito",
+  outros_centavos: "Outros", outros_descricao: "Descrição de outros", data: "Data", total_centavos: "Total do dia",
+  empresa_razao_social: "Razão social", empresa_cnpj: "CNPJ", empresa_endereco: "Endereço",
   cancelado_em: "Cancelado em", removido_em: "Removido em", principal: "Administrador principal",
 };
 const IGNORAR = new Set(["id", "atualizado_em", "atualizado_por", "criado_em", "criado_por", "cancelado_por", "enviado_em",
@@ -95,10 +98,11 @@ async function carregar() {
     if (a.tabela === "prestacoes") return nomeMes(a.registro_id.slice(0, 10));
     if (a.tabela === "relatorios_emitidos") return `${r.codigo || "PDF"}${r.mes ? `, ${nomeMes(r.mes).toLowerCase()}` : ""}`;
     if (a.tabela === "documentos") return r.nome_original || "Documento";
+    if (a.tabela === "faturamento_diario") return r.data ? `Dia ${fmt.data(r.data)}${r.total_centavos != null ? `, ${fmt.dinheiro(r.total_centavos)}` : ""}` : `Registro #${a.registro_id}`;
     return r.nome || r.email || TABELAS[a.tabela] || a.tabela;
   };
   const mudancas = (a) => {
-    if (a.operacao === "INSERT" || !a.campos_alterados?.length) return "";
+    if (a.operacao === "INSERT" || a.operacao === "DELETE" || !a.campos_alterados?.length) return "";
     const linhas = a.campos_alterados.filter((c) => !IGNORAR.has(c)).map((c) =>
       `<li><span class="campo-nome">${esc(CAMPOS[c] || c)}:</span> <span class="antes">${esc(valor(c, a.antes?.[c]))}</span> → <strong>${esc(valor(c, a.depois?.[c]))}</strong></li>`);
     return linhas.length ? `<ul class="mudancas">${linhas.join("")}</ul>` : "";

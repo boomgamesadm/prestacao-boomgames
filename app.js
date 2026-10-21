@@ -21,13 +21,14 @@ const PAGINAS = [
   { grupo: 1, rota: "painel",      nome: "Painel",               icone: "painel",     pronta: true },
   { grupo: 1, rota: "prestacoes",  nome: "Prestações mensais",   icone: "calendario", pronta: true },
   { grupo: 1, rota: "lancamentos", nome: "Lançamentos",          icone: "lista",      pronta: true },
+  { grupo: 1, rota: "faturamento", nome: "Faturamento da loja",  icone: "caixa",      pronta: true, so: "editar" },
   { grupo: 1, rota: "contas",      nome: "Contas a pagar",       icone: "boleto",     pronta: true },
   { grupo: 1, rota: "documentos",  nome: "Documentos",           icone: "documento",  pronta: true },
   { grupo: 1, rota: "relatorios",  nome: "Relatórios PDF",       icone: "pdf",        pronta: true },
   { grupo: 2, rota: "historico",   nome: "Histórico de alterações", icone: "historico", pronta: true, so: "admin" },
   { grupo: 2, rota: "usuarios",    nome: "Usuários e permissões", icone: "usuarios",  pronta: true,  so: "admin" },
   { grupo: 2, rota: "configuracoes", nome: "Configurações",      icone: "config",     pronta: true, so: "admin" },
-].filter((p) => !p.so || (p.so === "admin" && eAdmin));
+].filter((p) => !p.so || (p.so === "admin" && eAdmin) || (p.so === "editar" && podeEditar));
 
 // ---------- Menu ----------
 const nav = document.getElementById("menu-itens");
