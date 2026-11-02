@@ -1,5 +1,5 @@
 import {
-  sb, esc, fmt, ICONES, seletorMes, mesAtual, SITUACAO, CONFERENCIA, selo, mensagemErro, nomeMes, plural,
+  sb, esc, fmt, ICONES, seletorMes, mesAtual, SITUACAO, CONFERENCIA, selo, mensagemErro, nomeMes, plural, investimentoAcumulado,
 } from "./comum.js";
 import { abrirFormulario, abrirDetalhes, textoPrazo } from "./lancamento-janelas.js";
 
@@ -65,10 +65,11 @@ async function carregar() {
   const m = el.querySelector("#l-mes");
   m.replaceChildren(seletorMes(mes, (novo) => { estado.mes = novo; carregar(); }));
 
-  const [lin, res, cfg] = await Promise.all([
+  const [lin, res, cfg, inv] = await Promise.all([
     sb.from("vw_lancamentos").select("*").eq("mes_referencia", mes).order("data_movimentacao").order("id"),
     sb.from("vw_resumo_mensal").select("*").eq("mes", mes).maybeSingle(),
     sb.from("configuracoes").select("dias_amarelo, dias_vermelho").single(),
+    investimentoAcumulado(mes).catch(() => null),
   ]);
   if (lin.error) { el.querySelector("#l-tabela").innerHTML = `<p class="aviso aviso-erro" style="margin:16px">${esc(mensagemErro(lin.error))}</p>`; return; }
   estado.linhas = lin.data;
@@ -84,6 +85,8 @@ async function carregar() {
         <small>${r.coletas_obra_centavos ? `${fmt.dinheiro(r.pagamentos_efetivados_centavos)} pago + ${fmt.dinheiro(r.coletas_obra_centavos)} reaproveitado` : "Pagamentos efetivados"}</small></div>
       <div class="total ${r.pagar_pendente_centavos ? "destaque-amarelo" : ""}"><span>A pagar</span><strong>${fmt.dinheiro(r.pagar_pendente_centavos)}</strong>
         ${r.vencidas_centavos ? `<small>${fmt.dinheiro(r.vencidas_centavos)} vencido</small>` : "<small>Boletos e cartão deste mês</small>"}</div>
+      ${inv ? `<div class="total destaque-investido"><span>Investido até ${esc(nomeMes(mes).toLowerCase())}</span><strong>${fmt.dinheiro(inv.total)}</strong>
+        <small>${inv.desde ? `Desde ${esc(nomeMes(inv.desde).toLowerCase())}` : "Acumulado"}</small></div>` : ""}
       <div class="total"><span>Faturamento da loja</span><strong class="${r.faturamento_centavos ? "" : "apagado"}">${fmt.dinheiro(r.faturamento_centavos)}</strong>
         <small>${r.faturamento_centavos ? `Resultado ${fmt.sinal(r.resultado_centavos)}` : "Ainda não lançado"}</small></div>
       ${r.recebimentos_efetivados_centavos ? `<div class="total"><span>Recebido no mês</span><strong>${fmt.dinheiro(r.recebimentos_efetivados_centavos)}</strong></div>` : ""}

@@ -509,3 +509,7 @@ tr.cor-amarelo .prazo { color: var(--amarelo); font-weight: 650; }
 .dia-col span { font-size: 11px; color: var(--texto-3); height: 14px; }
 .total-dia { font-size: 26px; font-weight: 800; font-stretch: 80%; color: var(--verde); min-height: 44px; display: flex; align-items: center; }
 .tabela-fat tfoot td { border-top: 2px solid var(--linha); background: #F3FAF5; font-weight: 700; padding: 12px; }
+.total.destaque-investido strong { color: var(--laranja-forte); }
+.barras-h.investimento .trilho i { background: var(--laranja); }
+.barras-h.investimento .barra-h:first-child .trilho i { background: var(--laranja-forte); }
+.barras-h.investimento .barra-h { grid-template-columns: minmax(120px, 200px) 1fr auto; }

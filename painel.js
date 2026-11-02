@@ -1,4 +1,4 @@
-import { sb, esc, fmt, seletorMes, mesAtual, mudarMes, nomeMes, mensagemErro } from "./comum.js";
+import { sb, esc, fmt, seletorMes, mesAtual, mudarMes, nomeMes, mensagemErro, investimentoAcumulado } from "./comum.js";
 import { abrirDetalhes, textoPrazo } from "./lancamento-janelas.js";
 
 let estado;
@@ -14,11 +14,12 @@ async function carregar() {
   const { el, ctx, mes } = estado;
   el.querySelector("#p-mes").replaceChildren(seletorMes(mes, (n) => { estado.mes = n; carregar(); }));
   const corpo = el.querySelector("#p-corpo");
-  const [res, soc, lin, contas] = await Promise.all([
+  const [res, soc, lin, contas, inv] = await Promise.all([
     sb.from("vw_resumo_mensal").select("*").order("mes"),
     sb.from("vw_resumo_pagador").select("*").eq("mes", mes).order("pagador"),
     sb.from("vw_lancamentos").select("*").eq("mes_referencia", mes),
     sb.from("vw_contas_pagar").select("*").order("data_vencimento").limit(5),
+    investimentoAcumulado(null).catch(() => null),
   ]);
   for (const r of [res, soc, lin]) if (r.error) { corpo.innerHTML = `<p class="aviso aviso-erro">${esc(mensagemErro(r.error))}</p>`; return; }
 
@@ -46,8 +47,14 @@ async function carregar() {
   };
 
   const socios = soc.data.filter((s) => s.pago_centavos || s.pendente_centavos || s.coletas_obra_centavos || s.recebido_centavos);
+  // Quem já investiu em algum mês aparece mesmo sem gasto no mês escolhido
+  for (const nome of inv?.porSocio.keys() || []) {
+    if (!socios.some((x) => x.pagador === nome)) socios.push({ pagador: nome, custo_centavos: 0, pendente_centavos: 0, coletas_obra_centavos: 0 });
+  }
   corpo.innerHTML = `
     <div class="totais">
+      ${inv ? `<div class="total destaque-investido"><span>Investido até hoje</span><strong>${fmt.dinheiro(inv.total)}</strong>
+        <small>${inv.desde ? `Desde ${esc(nomeMes(inv.desde).toLowerCase())}` : ""}${inv.aPagar ? `, + ${fmt.dinheiro(inv.aPagar)} a pagar` : ""}</small></div>` : ""}
       <div class="total"><span>Faturamento da loja</span><strong class="${r.faturamento_centavos ? "" : "apagado"}">${fmt.dinheiro(r.faturamento_centavos)}</strong>
         <small>${r.faturamento_centavos ? "Valor bruto informado" : "Lance em Lançamentos, tipo Faturamento"}</small></div>
       <div class="total"><span>Custo do mês</span><strong>${fmt.dinheiro(r.custo_mes_centavos)}</strong>
@@ -64,10 +71,11 @@ async function carregar() {
       <section class="painel">
         <div class="painel-cabeca"><h2 class="titulo">Por sócio</h2><span class="resumo">Quem pagou em ${esc(nomeMes(mes).toLowerCase())}</span></div>
         ${socios.length ? `<div class="tabela-rolagem"><table class="tabela">
-          <thead><tr><th>Sócio</th><th class="direita">Custo</th><th class="direita">A pagar</th></tr></thead>
+          <thead><tr><th>Sócio</th><th class="direita">Custo no mês</th><th class="direita">A pagar</th><th class="direita">Investido até hoje</th></tr></thead>
           <tbody>${socios.map((s) => `<tr><td><strong>${esc(s.pagador)}</strong></td>
             <td class="valor">${fmt.dinheiro(s.custo_centavos)}${s.coletas_obra_centavos ? `<div class="sec" style="font-weight:400">${fmt.dinheiro(s.coletas_obra_centavos)} reaproveitado</div>` : ""}</td>
-            <td class="valor">${fmt.dinheiro(s.pendente_centavos)}</td></tr>`).join("")}</tbody></table></div>`
+            <td class="valor">${fmt.dinheiro(s.pendente_centavos)}</td>
+            <td class="valor">${fmt.dinheiro(inv?.porSocio.get(s.pagador) || 0)}</td></tr>`).join("")}</tbody></table></div>`
           : `<div class="vazio-tabela">Nenhum lançamento neste mês.</div>`}
       </section>
 
@@ -80,6 +88,17 @@ async function carregar() {
             <td class="valor">${fmt.dinheiro(c.saldo_pendente_centavos)}</td></tr>`).join("")}</tbody></table>`
           : `<div class="vazio-tabela">Nenhuma conta em aberto.</div>`}
       </section>
+
+      ${inv?.porCategoria?.size ? `<section class="painel largo">
+        <div class="painel-cabeca"><h2 class="titulo">Onde foi investido</h2>
+          <span class="resumo">Acumulado até hoje: ${fmt.dinheiro(inv.total)}${inv.desde ? `, desde ${esc(nomeMes(inv.desde).toLowerCase())}` : ""}</span></div>
+        <div class="painel-corpo"><div class="barras-h investimento">
+          ${[...inv.porCategoria].map(([cat, v]) => `
+            <div class="barra-h"><span class="rot">${esc(cat)}</span>
+              <span class="trilho"><i style="width:${Math.max(1.5, (v / inv.total) * 100)}%"></i></span>
+              <span class="val num">${fmt.dinheiro(v)} <span class="sec" style="font-weight:400">${Math.round((v / inv.total) * 100)}%</span></span></div>`).join("")}
+        </div></div>
+      </section>` : ""}
 
       <section class="painel largo">
         <div class="painel-cabeca"><h2 class="titulo">Últimos 6 meses</h2>

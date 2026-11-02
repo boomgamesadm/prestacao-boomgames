@@ -1,4 +1,4 @@
-import { sb, esc, fmt, nomeMes, definirMes, confirmar, toast, mensagemErro, plural, abrirJanela } from "./comum.js";
+import { sb, esc, fmt, nomeMes, hojeISO, definirMes, confirmar, toast, mensagemErro, plural, abrirJanela } from "./comum.js";
 import { gerarPDF } from "./pdf-prestacao.js";
 
 const STATUS = {
@@ -16,6 +16,9 @@ async function carregar() {
   const { el, ctx } = estado;
   const { data, error } = await sb.from("vw_resumo_mensal").select("*").order("mes", { ascending: false });
   if (error) { el.innerHTML = `<p class="aviso aviso-erro">${esc(mensagemErro(error))}</p>`; return; }
+  // Acumulado: soma do custo de todos os meses até cada um
+  const acumulado = new Map();
+  [...data].sort((a, b) => a.mes.localeCompare(b.mes)).reduce((t, r) => { t += r.custo_mes_centavos || 0; acumulado.set(r.mes, t); return t; }, 0);
   el.innerHTML = `
     <section class="painel">
       <div class="painel-cabeca"><h2 class="titulo">Prestações por mês</h2>
@@ -27,6 +30,7 @@ async function carregar() {
           const st = STATUS[r.status_prestacao] || STATUS.em_andamento;
           const extra = [plural(r.qtd_lancamentos || 0, "lançamento", "lançamentos"),
             r.faturamento_centavos ? `resultado ${fmt.sinal(r.resultado_centavos)}` : "",
+            acumulado.get(r.mes) && r.mes <= hojeISO().slice(0, 8) + "01" ? `investido até aqui ${fmt.dinheiro(acumulado.get(r.mes))}` : "",
             r.concluida_em ? `concluída em ${fmt.data(r.concluida_em)}` : ""].filter(Boolean).join(", ");
           return `<tr data-mes="${r.mes}">
             <td class="td-desc"><span class="desc-principal sem-quebra">${esc(nomeMes(r.mes))}</span><div class="sec">${esc(extra)}</div></td>

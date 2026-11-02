@@ -341,3 +341,41 @@ export async function abrirDocumento(caminho) {
 export function plural(n, singular, pluralForma = singular + "s") {
   return `${n} ${n === 1 ? singular : pluralForma}`;
 }
+
+// ---------------- Investimento acumulado ----------------
+/**
+ * Soma o custo (pago + material reaproveitado) de todos os meses até `ateMes` (inclusive; null = tudo até hoje).
+ * Devolve { total, desde, porSocio, porCategoria: Map(categoria → centavos), aPagar }
+ * — aPagar = tudo em aberto (todos os meses).
+ */
+export async function investimentoAcumulado(ateMes) {
+  const [r, s, l] = await Promise.all([
+    sb.from("vw_resumo_mensal").select("mes, custo_mes_centavos, pagar_pendente_centavos").order("mes"),
+    sb.from("vw_resumo_pagador").select("mes, pagador, custo_centavos"),
+    sb.from("vw_lancamentos").select("mes_referencia, tipo, categoria_nome, valor_efetivo_centavos, valor_centavos, situacao"),
+  ]);
+  if (r.error) throw r.error;
+  const meses = (r.data || []).filter((x) => (x.custo_mes_centavos || 0) > 0);
+  const ate = (m) => !ateMes || m <= ateMes;
+  const total = meses.filter((x) => ate(x.mes)).reduce((t, x) => t + x.custo_mes_centavos, 0);
+  const porSocio = new Map();
+  for (const x of s.data || []) {
+    if (!ate(x.mes) || !(x.custo_centavos > 0)) continue;
+    porSocio.set(x.pagador, (porSocio.get(x.pagador) || 0) + x.custo_centavos);
+  }
+  const aPagar = (r.data || []).reduce((t, x) => t + (x.pagar_pendente_centavos || 0), 0);
+  const porCategoria = custoPorCategoria((l.data || []).filter((x) => ate(x.mes_referencia)));
+  return { total, desde: meses[0]?.mes || null, porSocio, porCategoria, aPagar };
+}
+
+/** Custo por categoria (pagamentos efetivados + material reaproveitado), do maior para o menor. */
+export function custoPorCategoria(lancamentos) {
+  const mapa = new Map();
+  for (const x of lancamentos) {
+    let v = 0;
+    if (x.tipo === "pagamento") v = x.valor_efetivo_centavos || 0;
+    else if (x.tipo === "coleta_obra" && x.situacao !== "cancelado") v = x.valor_centavos || 0;
+    if (v > 0) mapa.set(x.categoria_nome || "Sem categoria", (mapa.get(x.categoria_nome || "Sem categoria") || 0) + v);
+  }
+  return new Map([...mapa].sort((a, b) => b[1] - a[1]));
+}

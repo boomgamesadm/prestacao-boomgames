@@ -3,7 +3,7 @@
 // Monta o PDF no navegador com os dados salvos no banco no momento da
 // emissão. Cada emissão é registrada (código e versão) antes do download.
 // =====================================================================
-import { sb, fmt, nomeMes, TIPO } from "./comum.js";
+import { sb, fmt, nomeMes, TIPO, investimentoAcumulado, custoPorCategoria } from "./comum.js";
 
 const PDF_LIB = "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js";
 const NOTAS = ["Nota fiscal", "NFS-e", "Cupom fiscal"];
@@ -54,10 +54,11 @@ export async function gerarPDF({ mes, filtro = "completo", perfil, baixar = true
   const filtrado = filtro !== "completo";
   const PDFLib = await carregarPdfLib();
 
-  const [lin, porSocio, logoBytes] = await Promise.all([
+  const [lin, porSocio, logoBytes, inv] = await Promise.all([
     sb.from("vw_lancamentos").select("*").eq("mes_referencia", mes).order("data_movimentacao").order("id"),
     sb.from("vw_resumo_pagador").select("*").eq("mes", mes).order("pagador"),
     fetch(document.querySelector(".menu-logo img, img[alt^='Boom Games']")?.src || "logo-boomgames-web.png").then((r) => r.arrayBuffer()).catch(() => null),
+    investimentoAcumulado(mes).catch(() => null),
   ]);
   if (lin.error) throw lin.error;
   const todos = lin.data;
@@ -213,9 +214,12 @@ export async function gerarPDF({ mes, filtro = "completo", perfil, baixar = true
 
   // Por sócio (só na prestação completa)
   const socios = (porSocio.data || []).filter((s) => s.pago_centavos || s.pendente_centavos || s.coletas_obra_centavos || s.recebido_centavos);
+  for (const nome of inv?.porSocio.keys() || []) {
+    if (!socios.some((x) => x.pagador === nome)) socios.push({ pagador: nome, custo_centavos: 0, pago_centavos: 0, pendente_centavos: 0, coletas_obra_centavos: 0 });
+  }
   if (!filtrado && socios.length) {
     escrever("Por sócio (quem pagou)", M, y, { f: negrito, tam: 11, cor: COR.preto }); y += 17;
-    const cs = [["Sócio", 160, "esq"], ["Custo", 110, "dir"], ["Pago", 110, "dir"], ["Material reaproveitado", 130, "dir"], ["A pagar", 110, "dir"], ["Recebido", 100, "dir"]];
+    const cs = [["Sócio", 150, "esq"], ["Custo no mês", 105, "dir"], ["Pago", 100, "dir"], ["Material reaproveitado", 125, "dir"], ["A pagar", 100, "dir"], ["Investido até o mês", 140, "dir"]];
     let x = M;
     retangulo(M, y, 720, 16, COR.zebra);
     for (const [t, w, a] of cs) { escrever(t, x + 6, y + 4.5, { f: negrito, tam: 7.5, cor: COR.cinza, alinhar: a, largura: w - 12 }); x += w; }
@@ -223,7 +227,7 @@ export async function gerarPDF({ mes, filtro = "completo", perfil, baixar = true
     for (const s of socios) {
       x = M;
       const vals = [s.pagador, fmt.dinheiro(s.custo_centavos ?? (s.pago_centavos + s.coletas_obra_centavos)), fmt.dinheiro(s.pago_centavos),
-        fmt.dinheiro(s.coletas_obra_centavos), fmt.dinheiro(s.pendente_centavos), fmt.dinheiro(s.recebido_centavos || 0)];
+        fmt.dinheiro(s.coletas_obra_centavos), fmt.dinheiro(s.pendente_centavos), fmt.dinheiro(inv?.porSocio.get(s.pagador) || 0)];
       cs.forEach(([, w, a], i) => { escrever(vals[i], x + 6, y + 4.5, { f: i ? fonte : negrito, tam: 8, alinhar: a, largura: w - 12 }); x += w; });
       y += 16; linhaH(y, M, M + 720);
     }
@@ -334,6 +338,49 @@ export async function gerarPDF({ mes, filtro = "completo", perfil, baixar = true
       espaco(ls.length * 10 + 4);
       for (const t of ls) { escrever(t, M, y, { tam: 7.6, cor: COR.cinza }); y += 10; }
       y += 3;
+    }
+  }
+
+  // Para nos situarmos: investimento acumulado na loja (do início até o fim deste mês), no final do relatório.
+  // Fica logo abaixo dos totais se couber na página; senão, vai inteiro para uma página nova.
+  if (inv && inv.total) {
+    const nCat = inv.porCategoria?.size || 0;
+    const ALT_FAIXA = 32, ALT_LINHA = 14;
+    const altura = 10 + ALT_FAIXA + 8 + (nCat ? 15 + 15 + nCat * ALT_LINHA + 16 : 0);
+    y += 10;
+    if (y + altura - 10 > ALT - M - 22) novaPagina();
+    retangulo(M, y, UTIL, ALT_FAIXA, COR.laranjaSuave);
+    pagina.drawRectangle({ x: M, y: ALT - y - ALT_FAIXA, width: 3.5, height: ALT_FAIXA, color: COR.laranja });
+    escrever(`Investido na loja até ${nomeMes(mes).toLowerCase()}`, M + 12, y + 5, { tam: 7.8, cor: rgb(0.42, 0.15, 0) });
+    escrever(fmt.dinheiro(inv.total), M + 12, y + 15, { f: negrito, tam: 12.5, cor: COR.preto });
+    if (inv.desde) escrever(`Acumulado desde ${nomeMes(inv.desde).toLowerCase()}, somando o custo de cada mês (pago + material reaproveitado).`, M + 190, y + 7, { tam: 7.5, cor: COR.cinza });
+    escrever(inv.aPagar ? `Na data de emissão, há ainda ${fmt.dinheiro(inv.aPagar)} em boletos e parcelas do cartão a pagar.` : "Na data de emissão, não há contas em aberto.", M + 190, y + 18, { tam: 7.5, cor: COR.cinza });
+    y += ALT_FAIXA + 8;
+
+    // Onde foi investido: por categoria, no mês e no acumulado
+    if (nCat) {
+      const noMes = custoPorCategoria(ativos);
+      escrever(`Onde foi investido (acumulado até ${nomeMes(mes).toLowerCase()})`, M, y, { f: negrito, tam: 10.5, cor: COR.preto }); y += 15;
+      const c = [["Categoria", 190, "esq"], ["No mês", 110, "dir"], ["Acumulado", 120, "dir"], ["% do total", 70, "dir"]];
+      const largT = 720;
+      retangulo(M, y, largT, 15, COR.zebra);
+      let x = M;
+      for (const [t, w, a] of c) { escrever(t, x + 6, y + 4, { f: negrito, tam: 7.5, cor: COR.cinza, alinhar: a, largura: w - 12 }); x += w; }
+      y += 15;
+      for (const [cat, v] of inv.porCategoria) {
+        const pct = v / inv.total;
+        x = M;
+        const vals = [cat, fmt.dinheiro(noMes.get(cat) || 0), fmt.dinheiro(v), `${Math.round(pct * 100)}%`];
+        c.forEach(([, w, a], i) => { escrever(vals[i], x + 6, y + 3.5, { f: i === 2 ? negrito : fonte, tam: 8, alinhar: a, largura: w - 12, cor: i === 1 && !noMes.get(cat) ? COR.claro : COR.texto }); x += w; });
+        pagina.drawRectangle({ x: x + 8, y: ALT - y - 10.5, width: largT - (x - M) - 16, height: 6, color: COR.zebra });
+        pagina.drawRectangle({ x: x + 8, y: ALT - y - 10.5, width: Math.max(1, (largT - (x - M) - 16) * pct), height: 6, color: COR.laranja });
+        y += ALT_LINHA;
+        linhaH(y, M, M + largT);
+      }
+      x = M;
+      const tot = ["Total", fmt.dinheiro([...noMes.values()].reduce((s, v) => s + v, 0)), fmt.dinheiro(inv.total), "100%"];
+      c.forEach(([, w, a], i) => { escrever(tot[i], x + 6, y + 4, { f: negrito, tam: 8.2, alinhar: a, largura: w - 12 }); x += w; });
+      y += 16;
     }
   }
 
