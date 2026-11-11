@@ -4,11 +4,11 @@ import { abrirDetalhes } from "./lancamento-janelas.js";
 const TABELAS = {
   lancamentos: "Lançamentos", prestacoes: "Prestações mensais", relatorios_emitidos: "Relatórios PDF",
   documentos: "Documentos", perfis: "Usuários", categorias: "Categorias", pagadores: "Sócios",
-  formas_pagamento: "Formas de pagamento", configuracoes: "Configurações", faturamento_diario: "Faturamento diário",
+  formas_pagamento: "Formas de pagamento", configuracoes: "Configurações", faturamento_diario: "Faturamento diário", acerto_pagamentos: "Acerto entre sócios",
 };
 const SINGULAR = {
   lancamentos: "lançamento", prestacoes: "prestação do mês", relatorios_emitidos: "relatório PDF", documentos: "documento",
-  perfis: "usuário", categorias: "categoria", pagadores: "sócio", formas_pagamento: "forma de pagamento", configuracoes: "configurações", faturamento_diario: "faturamento do dia",
+  perfis: "usuário", categorias: "categoria", pagadores: "sócio", formas_pagamento: "forma de pagamento", configuracoes: "configurações", faturamento_diario: "faturamento do dia", acerto_pagamentos: "pagamento entre sócios",
 };
 const OPERACOES = {
   INSERT: "Criou", UPDATE: "Alterou", DELETE: "Excluiu", CANCELAMENTO: "Cancelou", RESTAURACAO: "Restaurou",
@@ -29,6 +29,7 @@ const CAMPOS = {
   max_usuarios: "Máximo de contas", pode_conferir: "Pode conferir", pode_cancelar: "Pode cancelar", trocar_senha: "Trocar senha",
   dinheiro_centavos: "Dinheiro", pix_centavos: "PIX", debito_centavos: "Cartão de débito", credito_centavos: "Cartão de crédito",
   outros_centavos: "Outros", outros_descricao: "Descrição de outros", data: "Data", total_centavos: "Total do dia",
+  acerto_juros_percentual: "Juros do acerto (% ao mês)", de_pagador_id: "Quem pagou", para_pagador_id: "Para quem",
   empresa_razao_social: "Razão social", empresa_cnpj: "CNPJ", empresa_endereco: "Endereço",
   cancelado_em: "Cancelado em", removido_em: "Removido em", principal: "Administrador principal",
 };
@@ -75,12 +76,15 @@ async function carregar() {
   const nomes = {
     categoria_id: new Map(cad.categorias.map((c) => [String(c.id), c.nome])),
     pagador_id: new Map(cad.pagadores.map((c) => [String(c.id), c.nome])),
+    de_pagador_id: new Map(cad.pagadores.map((c) => [String(c.id), c.nome])),
+    para_pagador_id: new Map(cad.pagadores.map((c) => [String(c.id), c.nome])),
     forma_pagamento_id: new Map(cad.formas.map((c) => [String(c.id), c.nome])),
   };
 
   const valor = (campo, v) => {
     if (v === null || v === undefined || v === "") return "—";
     if (campo.endsWith("_centavos")) return fmt.dinheiro(v);
+    if (campo === "acerto_juros_percentual") return `${Number(v).toLocaleString("pt-BR", { maximumFractionDigits: 3 })}% ao mês`;
     if (nomes[campo]) return nomes[campo].get(String(v)) || `#${v}`;
     if (typeof v === "boolean") return v ? "Sim" : "Não";
     if (campo === "status_pagamento") return STATUS_PAG[v] || v;
@@ -98,6 +102,7 @@ async function carregar() {
     if (a.tabela === "prestacoes") return nomeMes(a.registro_id.slice(0, 10));
     if (a.tabela === "relatorios_emitidos") return `${r.codigo || "PDF"}${r.mes ? `, ${nomeMes(r.mes).toLowerCase()}` : ""}`;
     if (a.tabela === "documentos") return r.nome_original || "Documento";
+    if (a.tabela === "acerto_pagamentos") return r.valor_centavos != null ? `${fmt.dinheiro(r.valor_centavos)}${r.data ? ` em ${fmt.data(r.data)}` : ""}` : `Pagamento #${a.registro_id}`;
     if (a.tabela === "faturamento_diario") return r.data ? `Dia ${fmt.data(r.data)}${r.total_centavos != null ? `, ${fmt.dinheiro(r.total_centavos)}` : ""}` : `Registro #${a.registro_id}`;
     return r.nome || r.email || TABELAS[a.tabela] || a.tabela;
   };
