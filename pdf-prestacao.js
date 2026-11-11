@@ -41,6 +41,7 @@ export function limpo(texto) {
     if (c === "\n" || c === "\t") return " ";
     if ((n >= 32 && n <= 126) || (n >= 160 && n <= 255) || EXTRAS.includes(c)) return c;
     if (c === "→") return "->";
+    if (c === "−" || c === "‒") return "-";        // sinal de menos tipográfico → hífen (a fonte do PDF não tem "−")
     return "";
   }).join("");
 }

@@ -1,6 +1,7 @@
 import {
   sb, esc, fmt, ICONES, nomeMes, abrirJanela, confirmar, toast, mensagemErro, lerDinheiro, dinheiroCampo, hojeISO, mudarMes, plural,
 } from "./comum.js";
+import { gerarPDFAcerto } from "./pdf-acerto.js";
 
 /**
  * Calcula o acerto entre dois sócios (sociedade 50/50), mês a mês.
@@ -76,20 +77,32 @@ async function carregar() {
   const taxa = Number(cfg.data.acerto_juros_percentual || 0);
   const mesAtual = hojeISO().slice(0, 8) + "01";
   const r = calcularAcerto({ custos: soc.data, idA: A.id, idB: B.id, pagamentos: pgs.data, taxa, mesAtual });
-  Object.assign(estado, { A, B, taxa, pagamentos: pgs.data, socios });
+  // Combinado de pagamento e saldo previsto para o início dos pagamentos
+  const inicio = cfg.data.acerto_inicio_pagamentos ? String(cfg.data.acerto_inicio_pagamentos).slice(0, 8) + "01" : null;
+  const combinado = cfg.data.acerto_combinado || "";
+  const previsto = inicio && inicio > mesAtual
+    ? calcularAcerto({ custos: soc.data, idA: A.id, idB: B.id, pagamentos: pgs.data, taxa, mesAtual: inicio }).saldo : null;
+  Object.assign(estado, { A, B, taxa, pagamentos: pgs.data, socios, r, inicio, combinado, previsto });
+  const podeAlterar = estado.ctx.eAdmin;
 
   const devedor = r.saldo >= 0 ? B : A, credor = r.saldo >= 0 ? A : B;
   const pct = (v) => (Number(v) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 3 });
 
   el.innerHTML = `
     <div class="barra">
-      <form class="taxa-juros" id="a-taxa">
+      ${podeAlterar ? `<form class="taxa-juros" id="a-taxa">
         <label for="a-taxa-v">Juros compostos</label>
         <input class="entrada num" id="a-taxa-v" inputmode="decimal" value="${pct(taxa)}">
         <span>% ao mês</span>
         <button class="botao botao-secundario botao-acao" type="submit">Salvar taxa</button>
       </form>
-      <button class="botao botao-principal empurra" type="button" id="a-novo">${ICONES.mais}Registrar pagamento entre sócios</button>
+      <div class="empurra" style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="botao botao-secundario" type="button" id="a-pdf">${ICONES.pdf}Gerar PDF</button>
+        <button class="botao botao-principal" type="button" id="a-novo">${ICONES.mais}Registrar pagamento entre sócios</button>
+      </div>`
+      : `<div class="taxa-juros"><label>Juros compostos</label><strong class="num">${pct(taxa)}%</strong><span>ao mês</span></div>
+         <span class="sec">Somente consulta. Alterações são feitas pelos administradores.</span>
+         <button class="botao botao-secundario empurra" type="button" id="a-pdf">${ICONES.pdf}Gerar PDF</button>`}
     </div>
 
     <div class="totais">
@@ -102,7 +115,21 @@ async function carregar() {
         <small>${r.totalPagoAB ? `${esc(A.nome)} pagou ${fmt.dinheiro(r.totalPagoAB)}` : plural(estado.pagamentos.length, "pagamento registrado", "pagamentos registrados")}</small></div>
     </div>
 
-    <section class="painel">
+    <section class="painel combinado">
+      <div class="painel-cabeca"><h2 class="titulo">Como será o pagamento</h2>
+        ${podeAlterar ? `<button class="botao botao-texto botao-acao" type="button" id="a-combinado" style="margin-left:auto">Editar combinado</button>` : ""}</div>
+      <div class="painel-corpo">
+        <p style="margin:0 0 14px">${esc(combinado || "Ainda não há combinado registrado.")}</p>
+        <div class="combinado-dados">
+          <div><span>Início previsto dos pagamentos</span><strong>${inicio ? esc(nomeMes(inicio)) : "—"}</strong></div>
+          ${previsto != null ? `<div><span>Saldo previsto em ${esc(nomeMes(inicio).toLowerCase())}</span><strong>${fmt.dinheiro(Math.abs(previsto))}</strong>
+            <small>Com os juros até lá, considerando só os custos já registrados</small></div>` : ""}
+          <div><span>Forma de pagamento</span><strong>Valores livres</strong><small>Cada pagamento abate o saldo no mês em que é feito</small></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="painel" style="margin-top:16px">
       <div class="painel-cabeca"><h2 class="titulo">Extrato mês a mês</h2>
         <span class="resumo">Saldo positivo: ${esc(B.nome)} deve a ${esc(A.nome)}.</span></div>
       ${r.linhas.length ? `<div class="tabela-rolagem"><table class="tabela tabela-acerto">
@@ -136,11 +163,23 @@ async function carregar() {
             <td class="sem-quebra">${esc(nomeDe(p.de_pagador_id))} → ${esc(nomeDe(p.para_pagador_id))}</td>
             <td class="valor txt-verde">${fmt.dinheiro(p.valor_centavos)}</td>
             <td class="sec">${esc(p.observacoes || "")}</td>
-            <td><div class="tabela-acoes"><button class="botao botao-texto botao-acao" data-editar="${p.id}">Editar</button></div></td></tr>`).join("")}
+            <td><div class="tabela-acoes">${podeAlterar ? `<button class="botao botao-texto botao-acao" data-editar="${p.id}">Editar</button>` : ""}</div></td></tr>`).join("")}
         </tbody></table></div>`
         : `<div class="vazio-tabela">Nenhum pagamento entre os sócios registrado ainda.</div>`}
     </section>`;
 
+  el.querySelector("#a-pdf").onclick = async (e) => {
+    const b = e.currentTarget;
+    b.classList.add("carregando");
+    try {
+      const res = await gerarPDFAcerto({ r: estado.r, A: estado.A, B: estado.B, taxa: estado.taxa, pagamentos: estado.pagamentos, perfil: estado.ctx.perfil,
+        inicio: estado.inicio, combinado: estado.combinado, previsto: estado.previsto });
+      toast(`PDF gerado: ${res.nomeArquivo}`, "ok");
+    } catch (err) { toast(mensagemErro(err), "erro"); }
+    finally { b.classList.remove("carregando"); }
+  };
+  if (!podeAlterar) return;
+  el.querySelector("#a-combinado").onclick = janelaCombinado;
   el.querySelector("#a-novo").onclick = () => janelaPagamento();
   el.querySelectorAll("[data-editar]").forEach((b) => b.onclick = () => janelaPagamento(pgs.data.find((p) => p.id === Number(b.dataset.editar))));
   el.querySelector("#a-taxa").onsubmit = async (e) => {
@@ -157,6 +196,29 @@ async function carregar() {
     toast("Taxa de juros atualizada.", "ok");
     await carregar();
   };
+}
+
+function janelaCombinado() {
+  abrirJanela({
+    titulo: "Combinado de pagamento",
+    corpo: `
+      <div class="campo"><label for="c-inicio">Início previsto dos pagamentos</label>
+        <input class="entrada" id="c-inicio" type="month" value="${esc((estado.inicio || "").slice(0, 7))}"></div>
+      <div class="campo"><label for="c-texto">Como vai funcionar (aparece no PDF)</label>
+        <textarea class="entrada" id="c-texto" rows="6" maxlength="1200">${esc(estado.combinado)}</textarea></div>`,
+    acoes: [
+      { texto: "Cancelar" },
+      { texto: "Salvar combinado", classe: "botao-principal", aoClicar: async (j) => {
+        const mes = j.elemento.querySelector("#c-inicio").value;
+        const texto = j.elemento.querySelector("#c-texto").value.trim();
+        const { error } = await sb.from("configuracoes").update({
+          acerto_inicio_pagamentos: mes ? `${mes}-01` : null, acerto_combinado: texto || null }).eq("id", 1);
+        if (error) { toast(mensagemErro(error), "erro"); return false; }
+        toast("Combinado salvo.", "ok");
+        await carregar();
+      } },
+    ],
+  });
 }
 
 const nomeDe = (id) => estado.socios.find((s) => s.id === id)?.nome || `#${id}`;

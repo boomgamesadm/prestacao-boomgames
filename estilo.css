@@ -521,3 +521,8 @@ tr.cor-amarelo .prazo { color: var(--amarelo); font-weight: 650; }
 .taxa-juros span { color: var(--texto-2); font-size: 14px; }
 .total.destaque-acerto strong { color: var(--laranja-forte); }
 .tabela-acerto tr.mes-aberto td { background: #FAFAFB; color: var(--texto-2); }
+.combinado-dados { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.combinado-dados > div { background: var(--fundo); border-radius: 8px; padding: 12px 14px; }
+.combinado-dados span { display: block; font-size: 13px; color: var(--texto-2); }
+.combinado-dados strong { display: block; font-size: 19px; font-weight: 750; font-stretch: 85%; margin-top: 2px; }
+.combinado-dados small { display: block; font-size: 12.5px; color: var(--texto-3); margin-top: 2px; }
