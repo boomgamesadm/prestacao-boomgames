@@ -351,7 +351,7 @@ export function plural(n, singular, pluralForma = singular + "s") {
  */
 export async function investimentoAcumulado(ateMes) {
   const [r, s, l] = await Promise.all([
-    sb.from("vw_resumo_mensal").select("mes, custo_mes_centavos, pagar_pendente_centavos").order("mes"),
+    sb.from("vw_resumo_mensal").select("mes, custo_mes_centavos, pagar_pendente_centavos, pagamentos_efetivados_centavos, coletas_obra_centavos").order("mes"),
     sb.from("vw_resumo_pagador").select("mes, pagador, custo_centavos"),
     sb.from("vw_lancamentos").select("mes_referencia, tipo, categoria_nome, valor_efetivo_centavos, valor_centavos, situacao"),
   ]);
@@ -366,7 +366,10 @@ export async function investimentoAcumulado(ateMes) {
   }
   const aPagar = (r.data || []).reduce((t, x) => t + (x.pagar_pendente_centavos || 0), 0);
   const porCategoria = custoPorCategoria((l.data || []).filter((x) => ate(x.mes_referencia)));
-  return { total, desde: meses[0]?.mes || null, porSocio, porCategoria, aPagar };
+  const soma = (campo) => meses.filter((x) => ate(x.mes)).reduce((t, x) => t + (x[campo] || 0), 0);
+  const qtd = (l.data || []).filter((x) => ate(x.mes_referencia) && ["pagamento", "coleta_obra"].includes(x.tipo) && x.situacao !== "cancelado").length;
+  return { total, desde: meses[0]?.mes || null, porSocio, porCategoria, aPagar,
+    pago: soma("pagamentos_efetivados_centavos"), reaproveitado: soma("coletas_obra_centavos"), qtd };
 }
 
 /** Custo por categoria (pagamentos efetivados + material reaproveitado), do maior para o menor. */

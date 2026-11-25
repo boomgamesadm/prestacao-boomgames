@@ -69,7 +69,7 @@ async function carregar() {
     sb.from("vw_lancamentos").select("*").eq("mes_referencia", mes).order("data_movimentacao").order("id"),
     sb.from("vw_resumo_mensal").select("*").eq("mes", mes).maybeSingle(),
     sb.from("configuracoes").select("dias_amarelo, dias_vermelho").single(),
-    investimentoAcumulado(mes).catch(() => null),
+    investimentoAcumulado(null).catch(() => null),
   ]);
   if (lin.error) { el.querySelector("#l-tabela").innerHTML = `<p class="aviso aviso-erro" style="margin:16px">${esc(mensagemErro(lin.error))}</p>`; return; }
   estado.linhas = lin.data;
@@ -85,14 +85,25 @@ async function carregar() {
         <small>${r.coletas_obra_centavos ? `${fmt.dinheiro(r.pagamentos_efetivados_centavos)} pago + ${fmt.dinheiro(r.coletas_obra_centavos)} reaproveitado` : "Pagamentos efetivados"}</small></div>
       <div class="total ${r.pagar_pendente_centavos ? "destaque-amarelo" : ""}"><span>A pagar</span><strong>${fmt.dinheiro(r.pagar_pendente_centavos)}</strong>
         ${r.vencidas_centavos ? `<small>${fmt.dinheiro(r.vencidas_centavos)} vencido</small>` : "<small>Boletos e cartão deste mês</small>"}</div>
-      ${inv ? `<div class="total destaque-investido"><span>Investido até ${esc(nomeMes(mes).toLowerCase())}</span><strong>${fmt.dinheiro(inv.total)}</strong>
-        <small>${inv.desde ? `Desde ${esc(nomeMes(inv.desde).toLowerCase())}` : "Acumulado"}</small></div>` : ""}
       <div class="total"><span>Faturamento da loja</span><strong class="${r.faturamento_centavos ? "" : "apagado"}">${fmt.dinheiro(r.faturamento_centavos)}</strong>
         <small>${r.faturamento_centavos ? `Resultado ${fmt.sinal(r.resultado_centavos)}` : "Ainda não lançado"}</small></div>
       ${r.recebimentos_efetivados_centavos ? `<div class="total"><span>Recebido no mês</span><strong>${fmt.dinheiro(r.recebimentos_efetivados_centavos)}</strong></div>` : ""}
       <div class="total"><span>Lançamentos</span><strong>${r.qtd_lancamentos || 0}</strong>
         <small>${plural(r.qtd_conferidos || 0, "conferido")}${r.qtd_divergencias ? `, ${r.qtd_divergencias} com divergência` : ""}</small></div>
-    </div>`;
+    </div>
+    ${inv && inv.total ? `<section class="quadro-investido">
+      <div class="qi-principal">
+        <span class="qi-rotulo">Total investido na loja até hoje</span>
+        <strong class="qi-valor">${fmt.dinheiro(inv.total)}</strong>
+        <small>${inv.desde ? `Desde ${esc(nomeMes(inv.desde).toLowerCase())}` : ""}, somando tudo o que já foi pago${inv.qtd ? `, em ${inv.qtd} lançamentos registrados` : ""}. Não muda com o mês escolhido acima.</small>
+      </div>
+      <div class="qi-detalhes">
+        <div><span>Já pago (dinheiro, PIX, cartão, boleto)</span><strong>${fmt.dinheiro(inv.pago)}</strong></div>
+        ${inv.reaproveitado ? `<div><span>Material reaproveitado</span><strong>${fmt.dinheiro(inv.reaproveitado)}</strong></div>` : ""}
+        <div><span>Ainda a pagar (boletos e parcelas já lançados)</span><strong class="txt-amarelo">${fmt.dinheiro(inv.aPagar)}</strong></div>
+        <div class="qi-total"><span>Total comprometido (investido + a pagar)</span><strong>${fmt.dinheiro(inv.total + inv.aPagar)}</strong></div>
+      </div>
+    </section>` : ""}`;
   desenharTabela();
 }
 

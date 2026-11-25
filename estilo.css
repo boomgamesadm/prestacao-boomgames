@@ -526,3 +526,23 @@ tr.cor-amarelo .prazo { color: var(--amarelo); font-weight: 650; }
 .combinado-dados span { display: block; font-size: 13px; color: var(--texto-2); }
 .combinado-dados strong { display: block; font-size: 19px; font-weight: 750; font-stretch: 85%; margin-top: 2px; }
 .combinado-dados small { display: block; font-size: 12.5px; color: var(--texto-3); margin-top: 2px; }
+
+/* Quadro "Total investido na loja até hoje" (Lançamentos) */
+.quadro-investido { display: grid; grid-template-columns: minmax(260px, 1.1fr) 2fr; gap: 0; background: var(--branco);
+  border: 1px solid var(--linha); border-left: 4px solid var(--laranja); border-radius: var(--raio-painel); margin-bottom: 16px; overflow: hidden; }
+.qi-principal { padding: 18px 22px; background: #FFF4EC; display: flex; flex-direction: column; gap: 4px; }
+.qi-rotulo { font-size: 13.5px; font-weight: 650; color: #6B2600; }
+.qi-valor { font-size: 32px; font-weight: 800; font-stretch: 85%; color: var(--laranja-forte); line-height: 1.1; }
+.qi-principal small { font-size: 12.5px; color: var(--texto-2); }
+.qi-detalhes { display: grid; grid-template-columns: 1fr 1fr; }
+.qi-detalhes > div:nth-child(n+3) { border-top: 1px solid var(--linha); }
+.qi-detalhes > div { padding: 16px 18px; border-left: 1px solid var(--linha); display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.qi-detalhes span { font-size: 13px; color: var(--texto-2); }
+.qi-detalhes strong { font-size: 19px; font-weight: 750; font-stretch: 85%; }
+.qi-detalhes .qi-total { background: var(--fundo); }
+.txt-amarelo { color: #8A6100; }
+@media (max-width: 760px) {
+  .quadro-investido { grid-template-columns: 1fr; }
+  .qi-detalhes { grid-template-columns: 1fr; }
+  .qi-detalhes > div { border-left: 0; border-top: 1px solid var(--linha); }
+}
